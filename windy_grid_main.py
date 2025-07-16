@@ -77,10 +77,7 @@ def main() -> None:
     
     print("Environment layout:")
     environment.print_grid()
-    
-    plots_dir = os.path.join(MODEL_DIR, "plots")
-    os.makedirs(plots_dir, exist_ok=True)
-    
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
     

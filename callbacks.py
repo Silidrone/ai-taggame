@@ -1,5 +1,10 @@
 import time
+import os
+import matplotlib.pyplot as plt
 from typing import Any, Callable, Dict, List, Optional, Union
+
+from environments.taggame.constants import PLOT_DIR
+
 
 
 def benchmark(func: Callable[[], Any]) -> float:
@@ -62,3 +67,44 @@ class EpisodeLogger:
             'times': self.episode_times,
             'episodes': self.current_episode
         }
+    
+    def plot_training_progress(self, filename: str = "training_progress.png") -> None:
+        if len(self.episode_rewards) < self.log_freq:
+            print(f"Plot generation unsuccessful: Not enough data points (need at least {self.log_freq} episodes)")
+            return
+        
+        episodes = []
+        avg_rewards = []
+        avg_steps = []
+        
+        for i in range(self.log_freq, len(self.episode_rewards) + 1, self.log_freq):
+            episode_num = i
+            recent_rewards = self.episode_rewards[i-self.log_freq:i]
+            recent_steps = self.episode_steps[i-self.log_freq:i]
+            
+            episodes.append(episode_num)
+            avg_rewards.append(sum(recent_rewards) / len(recent_rewards))
+            avg_steps.append(sum(recent_steps) / len(recent_steps))
+        
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8))
+        
+        ax1.plot(episodes, avg_rewards, 'b-', linewidth=2, label='Average Reward')
+        ax1.set_xlabel('Episodes')
+        ax1.set_ylabel('Average Reward')
+        ax1.set_title('Training Progress: Average Reward over Episodes')
+        ax1.grid(True, alpha=0.3)
+        ax1.legend()
+        
+        ax2.plot(episodes, avg_steps, 'gray', linewidth=2, label='Average Steps')
+        ax2.set_xlabel('Episodes')
+        ax2.set_ylabel('Average Steps')
+        ax2.set_title('Training Progress: Average Steps per Episode')
+        ax2.grid(True, alpha=0.3)
+        ax2.legend()
+        
+        plt.tight_layout()
+        
+        plot_path = os.path.join(PLOT_DIR, filename)
+        plt.savefig(plot_path, dpi=300, bbox_inches='tight')
+        plt.close()
+        print(f"Training progress plot saved to {plot_path}")

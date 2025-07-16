@@ -18,7 +18,7 @@ from value_strategy import TorchValueStrategy
 
 MODEL_PATH = os.path.join(MODEL_DIR, MODEL_FILE)
 
-def setup_training():
+def setup_training(mode='train'):
     os.makedirs(MODEL_DIR, exist_ok=True)
 
     environment = TagGame(render=ENABLE_RENDERING)
@@ -45,6 +45,8 @@ def setup_training():
             print(f"Could not load model: {e}")
             print("Starting with a new model.")
     else:
+        if mode == 'evaluate':
+            raise FileNotFoundError(f"No existing model found at {MODEL_PATH}. Cannot evaluate without a trained model.")
         print("No existing model found. Starting with a new model.")
     
     policy = EpsilonGreedyPolicy(value_strategy, POLICY_EPSILON, MIN_EPSILON, DECAY_RATE)
@@ -52,21 +54,24 @@ def setup_training():
     
     return environment, model, value_strategy, policy, mdp_solver
 
+def onexit(mdp_solver, model, training_time, exc=None):
+    torch.save(model.state_dict(), MODEL_PATH)
+    if exc:
+        print(f"Exit with an exception. Saved model. Training completed in {training_time:.2f} seconds. Exit reason: {exc}")
+    else:
+        print(f"Saved model. Training completed in {training_time:.2f} seconds.")
+                
+    mdp_solver._logger.plot_training_progress("taggame_training_progress.png")
+
 def train(mdp_solver, model):
     print(f"Starting training with neural network...")
     
+    start_time = time.time()
     try:
-        start_time = time.time()
-        
         mdp_solver.policy_iteration()
-        
-        training_time = time.time() - start_time
-
-        torch.save(model.state_dict(), MODEL_PATH)
-        print(f"Saved model. Training completed in {training_time:.2f} seconds.")
+        onexit(mdp_solver, model, time.time() - start_time)
     except Exception as e:
-        torch.save(model.state_dict(), MODEL_PATH)
-        print(f"Saved model. Training stopped because: {e}")
+        onexit(mdp_solver, model, time.time() - start_time, e)
 
 def evaluate(environment, value_strategy):
     if hasattr(value_strategy, 'q_network'):
@@ -92,7 +97,7 @@ def main():
                         
     args = parser.parse_args()
     
-    environment, model, value_strategy, policy, mdp_solver = setup_training()
+    environment, model, value_strategy, policy, mdp_solver = setup_training(args.mode)
     try:
         if args.mode == 'train':
             train(mdp_solver, model)
