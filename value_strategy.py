@@ -37,7 +37,6 @@ class TorchValueStrategy(ValueStrategy[State, Action]):
                  feature_extractor: Callable[[State, Action], torch.Tensor],
                  step_size: float = 0.01):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        print(f"TorchValueStrategy initialized with device: {self.device}")
         
         self.q_network = network
         self.feature_extractor = feature_extractor

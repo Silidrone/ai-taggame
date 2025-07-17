@@ -16,7 +16,6 @@ def get_device() -> torch.device:
     global _DEVICE
     if _DEVICE is None:
         _DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        print(f"Feature extractor using device: {_DEVICE}")
     return _DEVICE
 
 def set_device(device: Optional[torch.device] = None) -> None:
@@ -24,7 +23,6 @@ def set_device(device: Optional[torch.device] = None) -> None:
     if device is None:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     _DEVICE = device
-    print(f"Feature extractor device set to: {_DEVICE}")
 
 class TagGameQNet(TorchModel):
     def __init__(self, input_size: int, hidden_size: int = HIDDEN_SIZE):

@@ -19,6 +19,7 @@ class SARSA(MDPSolver[S, A]):
         self._decay_epsilon = decay_epsilon
         self._print_freq = 100
         self._logger = EpisodeLogger(self._print_freq)
+        self._episode_end_callback = None
         
         policy.initialize(mdp, value_strategy)
         
@@ -30,6 +31,9 @@ class SARSA(MDPSolver[S, A]):
         if isinstance(self._policy, EpsilonGreedyPolicy):
             return self._policy
         return None
+    
+    def set_episode_end_callback(self, callback):
+        self._episode_end_callback = callback
     
     def _timed_update(self, state: S, action: A, target_q: float, current_episode: int = 0) -> None:
         if current_episode % self._print_freq == 0:
@@ -54,7 +58,6 @@ class SARSA(MDPSolver[S, A]):
         episode = 0
         eps_policy = self._get_epsilon_policy()
         
-        print("Starting SARSA training...")
         
         try:
             while episode < self._policy_threshold:
@@ -92,6 +95,9 @@ class SARSA(MDPSolver[S, A]):
                     eps_policy.decay_epsilon()
                 
                 self._logger.end_episode(episode_reward, steps)
+                
+                if self._episode_end_callback:
+                    self._episode_end_callback(episode)
         
         except KeyboardInterrupt:
             print("\nTraining interrupted.")

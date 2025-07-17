@@ -52,10 +52,26 @@ Train the tag game agent:
 python taggame_main.py --mode train
 ```
 
-Evaluate trained agent:
+Train with periodic saves (every 1000 episodes):
 ```bash
-python taggame_main.py --mode evaluate
+python taggame_main.py --mode train --output_freq 1000
 ```
+
+Evaluate trained agent by run ID:
+```bash
+python taggame_main.py --mode evaluate --run_id a3k7x2
+```
+
+Evaluate trained agent by model path:
+```bash
+python taggame_main.py --mode evaluate --model_path a3k7x2/taggame_model.pt
+```
+
+### Training Run Management
+
+Each training run is assigned a unique 6-character alphanumeric ID (e.g., `a3k7x2`) displayed at the start of training. This ID creates separate directories in both `models/` and `plots/` to prevent overwriting previous runs. The model (`taggame_model.pt`) is saved in the run-specific model directory, while training plots are saved with episode numbers (e.g., `taggame_training_ep001000.png`) in the run-specific plots directory.
+
+The `--output_freq` parameter allows periodic saving during training. For example, `--output_freq 1000` overwrites the model every 1000 episodes and generates a new cumulative plot file (e.g., `taggame_training_ep001000.png`, `taggame_training_ep002000.png`, etc.). Each plot shows training progress from episode 1 to that checkpoint.
 
 Run unit test:
 ```bash
@@ -97,3 +113,9 @@ RL_PLAYER_NAME = "Sili"
 ```
 
 **Note**: For evaluation mode, you must set `ENABLE_RENDERING = True` and it is recommended to set `TIME_COEFFICIENT = 0.02` to slow down the simulation and better observe how the agent behaves.
+
+## Performance Optimization
+
+Rendering is disabled by default during training (`ENABLE_RENDERING = False`) for significant performance gains. Training runs 10-50x faster without graphics rendering, making the full 50,000 episodes practical. Enable rendering only for evaluation to observe the trained agent's behavior.
+
+The agent automatically detects and uses GPU (CUDA) when available, providing additional performance improvements for neural network training. GPU acceleration is recommended for training, while CPU is sufficient for evaluation.

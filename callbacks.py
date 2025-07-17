@@ -107,4 +107,3 @@ class EpisodeLogger:
         plot_path = os.path.join(PLOT_DIR, filename)
         plt.savefig(plot_path, dpi=300, bbox_inches='tight')
         plt.close()
-        print(f"Training progress plot saved to {plot_path}")
