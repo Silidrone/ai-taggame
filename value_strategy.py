@@ -35,7 +35,7 @@ class ValueStrategy(Generic[State, Action], ABC):
 class TorchValueStrategy(ValueStrategy[State, Action]):
     def __init__(self, network: TorchModel, 
                  feature_extractor: Callable[[State, Action], torch.Tensor],
-                 step_size: float = 0.01):
+                 step_size: float = 0.01, lr_decay: float = 1.0, min_lr: float = 0.0001):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
         self.q_network = network
@@ -44,9 +44,20 @@ class TorchValueStrategy(ValueStrategy[State, Action]):
         self.optimizer = optim.Adam(network.parameters(), lr=step_size)
         self._mdp = None
         self._step_size = step_size
+        self.current_lr = step_size
+        self.lr_decay = lr_decay
+        self.min_lr = min_lr
     
     def initialize(self, mdp: MDP[State, Action]) -> None:
         self._mdp = mdp
+    
+    def decay_learning_rate(self) -> None:
+        self.current_lr = max(self.current_lr * self.lr_decay, self.min_lr)
+        for param_group in self.optimizer.param_groups:
+            param_group['lr'] = self.current_lr
+    
+    def get_current_learning_rate(self) -> float:
+        return self.current_lr
     
     def get_best_action(self, state: State) -> Tuple[Action, Return]:
         if self._mdp is None:

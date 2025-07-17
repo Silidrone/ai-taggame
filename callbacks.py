@@ -55,10 +55,16 @@ class EpisodeLogger:
         print(f"  Avg reward: {avg_reward:.2f}")
         print(f"  Avg steps: {avg_steps:.2f}")
         print(f"  Avg time: {avg_time:.4f}s")
-        print(f"  Epsilon: {self.get_current_epsilon():.4f}" if hasattr(self, 'get_current_epsilon') else "")
+        if hasattr(self, 'get_current_epsilon'):
+            print(f"  Epsilon: {self.get_current_epsilon():.4f}")
+        if hasattr(self, 'get_current_learning_rate'):
+            print(f"  Learning Rate: {self.get_current_learning_rate():.6f}")
     
     def set_epsilon_getter(self, getter: Callable[[], float]) -> None:
         self.get_current_epsilon = getter
+    
+    def set_learning_rate_getter(self, getter: Callable[[], float]) -> None:
+        self.get_current_learning_rate = getter
     
     def get_stats(self) -> Dict[str, Union[List[float], List[int]]]:
         return {

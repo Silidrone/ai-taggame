@@ -16,7 +16,8 @@ os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
 from sarsa import SARSA
 from environments.taggame.constants import (
     DECAY_RATE, DISCOUNT_RATE, ENABLE_RENDERING, LEARNING_RATE, MIN_EPSILON,
-    N_OF_EPISODES, MODEL_DIR, POLICY_EPSILON, MODEL_FILE, HIDDEN_SIZE
+    N_OF_EPISODES, MODEL_DIR, POLICY_EPSILON, MODEL_FILE, HIDDEN_SIZE,
+    LEARNING_RATE_DECAY, MIN_LEARNING_RATE
 )
 from environments.taggame.taggame import TagGame
 from environments.taggame.models import TagGameQNet, feature_extractor, set_device, state_to_readable
@@ -71,7 +72,7 @@ def setup_training(mode='train', run_id=None, model_path_arg=None):
     model = TagGameQNet(input_size, HIDDEN_SIZE)
     model.to(device)
     
-    value_strategy = TorchValueStrategy(model, feature_extractor, LEARNING_RATE)
+    value_strategy = TorchValueStrategy(model, feature_extractor, LEARNING_RATE, LEARNING_RATE_DECAY, MIN_LEARNING_RATE)
     value_strategy.initialize(environment)
     
     print(f"Using device: {device}")

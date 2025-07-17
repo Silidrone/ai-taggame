@@ -26,6 +26,9 @@ class SARSA(MDPSolver[S, A]):
         eps_policy = self._get_epsilon_policy()
         if eps_policy:
             self._logger.set_epsilon_getter(lambda: eps_policy.epsilon)
+        
+        if hasattr(self._value_strategy, 'get_current_learning_rate'):
+            self._logger.set_learning_rate_getter(lambda: self._value_strategy.get_current_learning_rate())
     
     def _get_epsilon_policy(self) -> Optional[EpsilonGreedyPolicy[S, A]]:
         if isinstance(self._policy, EpsilonGreedyPolicy):
@@ -93,6 +96,9 @@ class SARSA(MDPSolver[S, A]):
                 
                 if self._decay_epsilon and eps_policy:
                     eps_policy.decay_epsilon()
+                
+                if hasattr(self._value_strategy, 'decay_learning_rate'):
+                    self._value_strategy.decay_learning_rate()
                 
                 self._logger.end_episode(episode_reward, steps)
                 
