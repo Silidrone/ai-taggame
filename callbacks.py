@@ -1,9 +1,10 @@
 import time
 import os
+import logging
 import matplotlib.pyplot as plt
 from typing import Any, Callable, Dict, List, Optional, Union
 
-from environments.taggame.constants import PLOT_DIR
+from environments.taggame.constants import DATA_DIR
 
 
 
@@ -51,14 +52,17 @@ class EpisodeLogger:
         avg_steps = sum(last_steps) / len(last_steps)
         avg_time = sum(last_times) / len(last_times)
         
-        print(f"Episode {self.current_episode}:")
-        print(f"  Avg reward: {avg_reward:.2f}")
-        print(f"  Avg steps: {avg_steps:.2f}")
-        print(f"  Avg time: {avg_time:.4f}s")
+        episode_stats = f"Episode {self.current_episode}:\n"
+        episode_stats += f"  Avg reward: {avg_reward:.2f}\n"
+        episode_stats += f"  Avg steps: {avg_steps:.2f}\n"
+        episode_stats += f"  Avg time: {avg_time:.4f}s"
+        
         if hasattr(self, 'get_current_epsilon'):
-            print(f"  Epsilon: {self.get_current_epsilon():.4f}")
+            episode_stats += f"\n  Epsilon: {self.get_current_epsilon():.4f}"
         if hasattr(self, 'get_current_learning_rate'):
-            print(f"  Learning Rate: {self.get_current_learning_rate():.6f}")
+            episode_stats += f"\n  Learning Rate: {self.get_current_learning_rate():.6f}"
+        
+        logging.info(episode_stats)
     
     def set_epsilon_getter(self, getter: Callable[[], float]) -> None:
         self.get_current_epsilon = getter
@@ -110,6 +114,6 @@ class EpisodeLogger:
         
         plt.tight_layout()
         
-        plot_path = os.path.join(PLOT_DIR, filename)
+        plot_path = os.path.join(DATA_DIR, filename)
         plt.savefig(plot_path, dpi=300, bbox_inches='tight')
         plt.close()

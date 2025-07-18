@@ -4,7 +4,7 @@ import os
 import torch
 from typing import List, Tuple
 
-from sarsa import SARSA
+from td import SARSA, QLearning
 from environments.windy_grid_world.windy_grid_constants import (
     DECAY_RATE, DISCOUNT_RATE, LEARNING_RATE, MIN_EPSILON,
     N_OF_EPISODES, MODEL_DIR, POLICY_EPSILON, VALUE_FILE

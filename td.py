@@ -1,4 +1,5 @@
 import time
+from abc import ABC, abstractmethod
 from typing import Optional, TypeVar
 
 from mdp import MDP
@@ -10,7 +11,7 @@ from mdp_solver import MDPSolver
 S = TypeVar('S')
 A = TypeVar('A')
 
-class SARSA(MDPSolver[S, A]):
+class TD(MDPSolver[S, A], ABC):
     def __init__(self, mdp: MDP[S, A], policy: Policy[S, A],
                  value_strategy: ValueStrategy[S, A], discount_rate: float,
                  policy_threshold: float, decay_epsilon: bool = False):
@@ -38,29 +39,24 @@ class SARSA(MDPSolver[S, A]):
     def set_episode_end_callback(self, callback):
         self._episode_end_callback = callback
     
-    def _timed_update(self, state: S, action: A, target_q: float, current_episode: int = 0) -> None:
-        if current_episode % self._print_freq == 0:
-            start = time.time()
-            self._value_strategy.update(state, action, target_q)
-            end = time.time()
-            print(f"Episode {current_episode} - Update time: {(end - start) * 1000:.2f} ms")
-        else:
-            self._value_strategy.update(state, action, target_q)
+    @abstractmethod
+    def compute_target_q(self, reward: float, next_state: S, done: bool, next_action: Optional[A] = None) -> float:
+        """Compute the target Q-value for the TD update.
+        
+        Args:
+            reward: The immediate reward received
+            next_state: The next state
+            done: Whether the episode is terminal
+            next_action: The next action (used by SARSA, ignored by Q-learning)
+            
+        Returns:
+            The target Q-value for the update
+        """
+        pass
     
-    def _timed_q(self, state: S, action: A, current_episode: int = 0) -> float:
-        if current_episode % self._print_freq == 0:
-            start = time.time()
-            q_value = self._value_strategy.Q(state, action)
-            end = time.time()
-            print(f"Episode {current_episode} - Q lookup time: {(end - start) * 1000:.2f} ms")
-            return q_value
-        else:
-            return self._value_strategy.Q(state, action)
-    
-    def sarsa_main(self) -> None:
+    def td_main(self) -> None:
         episode = 0
         eps_policy = self._get_epsilon_policy()
-        
         
         try:
             while episode < self._policy_threshold:
@@ -81,13 +77,8 @@ class SARSA(MDPSolver[S, A]):
                     
                     done = self._mdp.is_terminal(next_state)
                     
-                    next_action = self._policy.sample(next_state) if not done else action
-                    
-                    if done:
-                        target_q = reward
-                    else:
-                        next_q = self._value_strategy.Q(next_state, next_action)
-                        target_q = reward + self._discount_rate * next_q
+                    next_action = self._policy.sample(next_state) if not done else None
+                    target_q = self.compute_target_q(reward, next_state, done, next_action)
                     
                     self._value_strategy.update(state, action, target_q)
                     
@@ -111,8 +102,36 @@ class SARSA(MDPSolver[S, A]):
         print(f"Training completed after {episode} episodes")
     
     def policy_iteration(self) -> None:
-        def run_sarsa():
-            self.sarsa_main()
+        def run_td():
+            self.td_main()
         
-        total_time = benchmark(run_sarsa)
+        total_time = benchmark(run_td)
         print(f"Policy iteration completed in {total_time:.2f} seconds")
+
+
+class SARSA(TD[S, A]):
+    def __init__(self, mdp: MDP[S, A], policy: Policy[S, A],
+                 value_strategy: ValueStrategy[S, A], discount_rate: float,
+                 policy_threshold: float, decay_epsilon: bool = False):
+        super().__init__(mdp, policy, value_strategy, discount_rate, policy_threshold, decay_epsilon)
+    
+    def compute_target_q(self, reward: float, next_state: S, done: bool, next_action: Optional[A] = None) -> float:
+        if done:
+            return reward
+        
+        next_q = self._value_strategy.Q(next_state, next_action)
+        return reward + self._discount_rate * next_q
+    
+
+class QLearning(TD[S, A]):
+    def __init__(self, mdp: MDP[S, A], policy: Policy[S, A],
+                 value_strategy: ValueStrategy[S, A], discount_rate: float,
+                 policy_threshold: float, decay_epsilon: bool = False):
+        super().__init__(mdp, policy, value_strategy, discount_rate, policy_threshold, decay_epsilon)
+    
+    def compute_target_q(self, reward: float, next_state: S, done: bool, next_action: Optional[A] = None) -> float:
+        if done:
+            return reward
+        
+        best_action, best_q = self._value_strategy.get_best_action(next_state)
+        return reward + self._discount_rate * best_q

@@ -6,7 +6,7 @@ Built on top of an extensible reinforcement learning framework designed to work 
 
 ## Architecture
 
-The agent uses the SARSA (State-Action-Reward-State-Action) reinforcement learning algorithm with neural network function approximation. The RL framework models MDP environments and is designed to be extensible, any environment that implements the MDP interface can work with the RL algorithms. The tag game environment is implemented in Python using Pygame for rendering and physics.
+The agent uses Q-learning reinforcement learning algorithm with neural network function approximation. The RL framework models MDP environments and is designed to be extensible, any environment that implements the MDP interface can work with the RL algorithms. The tag game environment is implemented in Python using Pygame for rendering and physics.
 
 ## Environment and Episode Structure
 
@@ -20,9 +20,15 @@ This framework was originally built as part of the [ai-from-scratch](https://git
 
 The RL framework code was ported from C++ to Python, while the neural network component now uses PyTorch instead of the custom C++ implementation. The motivation for this Python port was to compare performance between custom neural network implementations and a high-end library like PyTorch.
 
-## Model Persistence
+## Data Management
 
-The trained neural network model is saved as `models/taggame_model.pt` (or `windygridworld_model.pt` for windygridworld). When running training mode, the model is automatically loaded if it exists to continue learning from the previous state. At the end of training, the updated model is saved back to the same file. When running evaluation mode, the saved model is loaded to demonstrate the learned policy without any further training. In evaluation mode, the agent acts 100% greedily with respect to the model's Q-values and the neural network is set to evaluation mode, which disables dropout and batch normalization updates.
+All training data is organized in the `data/` directory with each training run getting its own subdirectory identified by a unique 6-character alphanumeric ID (e.g., `a3k7x2`). Each run directory contains:
+
+- **Model**: `taggame_model.pt` - The trained neural network
+- **Plots**: Training progress plots (e.g., `taggame_training_ep000500.png`)
+- **Logs**: `training.log` - Training statistics and progress
+
+When running training mode, the model is automatically loaded if it exists to continue learning from the previous state. At the end of training, the updated model is saved back to the same file. When running evaluation mode, the saved model is loaded to demonstrate the learned policy without any further training. In evaluation mode, the agent acts 100% greedily with respect to the model's Q-values and the neural network is set to evaluation mode, which disables dropout and batch normalization updates.
 
 ## Neural Network Architecture
 
@@ -35,11 +41,12 @@ The trained neural network model is saved as `models/taggame_model.pt` (or `wind
 
 ## Hyperparameters
 
-- **Algorithm**: SARSA
+- **Algorithm**: Q-learning
 - **Discount factor**: 0.99
-- **Exploration**: ε-greedy (start: 0.3, min: 0.01, decay: 0.999)
-- **Training episodes**: 50,000
-- **Convergence**: Optimal policy learned in approximately 50,000 episodes
+- **Exploration**: ε-greedy (start: 0.3, min: 0.01, decay: 0.9975)
+- **Learning rate**: 0.0001 (no decay)
+- **Training episodes**: 5,000,000
+- **Output frequency**: Every 500 episodes (model saves, plots, logs)
 
 ## Unit Testing
 
@@ -47,31 +54,43 @@ The windygridworld environment from the Sutton-Barto RL book was also ported fro
 
 ## Usage
 
-Train the tag game agent:
+### Training
+
+Start new training (generates random run ID):
 ```bash
-python taggame_main.py --mode train
+python taggame_main.py
 ```
 
-Train with periodic saves (every 1000 episodes):
+Start/continue training with specific run ID:
 ```bash
-python taggame_main.py --mode train --output_freq 1000
+python taggame_main.py --run_id my_model
 ```
+
+### Evaluation
 
 Evaluate trained agent by run ID:
 ```bash
-python taggame_main.py --mode evaluate --run_id a3k7x2
+python taggame_main.py --mode evaluate --run_id my_model
 ```
 
 Evaluate trained agent by model path:
 ```bash
-python taggame_main.py --mode evaluate --model_path a3k7x2/taggame_model.pt
+python taggame_main.py --mode evaluate --model_path my_model/taggame_model.pt
 ```
 
 ### Training Run Management
 
-Each training run is assigned a unique 6-character alphanumeric ID (e.g., `a3k7x2`) displayed at the start of training. This ID creates separate directories in both `models/` and `plots/` to prevent overwriting previous runs. The model (`taggame_model.pt`) is saved in the run-specific model directory, while training plots are saved with episode numbers (e.g., `taggame_training_ep001000.png`) in the run-specific plots directory.
+Each training run is assigned a unique 6-character alphanumeric ID (e.g., `a3k7x2`) displayed at the start of training. All data for a run is stored in `data/{run_id}/` containing the model, plots, and training logs.
 
-The `--output_freq` parameter allows periodic saving during training. For example, `--output_freq 1000` overwrites the model every 1000 episodes and generates a new cumulative plot file (e.g., `taggame_training_ep001000.png`, `taggame_training_ep002000.png`, etc.). Each plot shows training progress from episode 1 to that checkpoint.
+You can specify your own run ID using `--run_id` to:
+- **Continue training**: If the run ID exists, training resumes from the saved model
+- **Name your runs**: Use meaningful names instead of random IDs
+- **Organize experiments**: Group related training runs with consistent naming
+
+Output is automatically saved every 500 episodes (configurable via `OUTPUT_FREQ` constant):
+- **Model**: `data/{run_id}/taggame_model.pt`
+- **Plots**: `data/{run_id}/taggame_training_ep000500.png`, etc.
+- **Logs**: `data/{run_id}/training.log` (episode statistics)
 
 Run unit test:
 ```bash
@@ -80,13 +99,13 @@ python windy_grid_main.py
 
 ## Configuration
 
-The `environments/taggame/constants.py` file is crucial for the project as it contains both hyperparameters and game parameters. After extensive tuning, the following configuration has been found to achieve convergence in approximately 50,000 episodes:
+The `environments/taggame/constants.py` file contains both hyperparameters and game parameters. The current configuration optimized for Q-learning:
 
 ```python
 # Game Environment
 WIDTH = 1000
 HEIGHT = 1000
-FRAME_RATE_CAP = 60 # not used when ENABLE_RENDERING=False
+FRAME_RATE_CAP = 3000  # High performance training
 ENABLE_RENDERING = False
 TIME_COEFFICIENT = 1
 MAX_VELOCITY = 50
@@ -95,17 +114,19 @@ TAG_COOLDOWN_MS = 10
 
 # RL Hyperparameters
 DISCOUNT_RATE = 0.99
-N_OF_EPISODES = 50000
+N_OF_EPISODES = 5000000
 POLICY_EPSILON = 0.3
 MIN_EPSILON = 0.01
-DECAY_RATE = 0.999
-LEARNING_RATE = 0.001
+DECAY_RATE = 0.9975  # Faster epsilon decay for Q-learning
+LEARNING_RATE = 0.0001  # Lower learning rate for stability
+LEARNING_RATE_DECAY = 1.0  # No decay
+MIN_LEARNING_RATE = 0.0001
 HIDDEN_SIZE = 64
 
-# File Paths
-MODEL_DIR = "models/"
-PLOT_DIR = "plots/"
+# Data Management
+DATA_DIR = "data/"
 MODEL_FILE = "taggame_model.pt"
+OUTPUT_FREQ = 500  # Save frequency for models/plots/logs
 
 # Game Setup
 PLAYER_COUNT = 2

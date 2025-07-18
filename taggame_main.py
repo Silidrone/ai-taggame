@@ -13,11 +13,11 @@ sys.path.append('/home/silidrone/silidev/aiplane_py')
 warnings.filterwarnings("ignore", category=UserWarning)
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
 
-from sarsa import SARSA
+from td import SARSA, QLearning
 from environments.taggame.constants import (
     DECAY_RATE, DISCOUNT_RATE, ENABLE_RENDERING, LEARNING_RATE, MIN_EPSILON,
-    N_OF_EPISODES, MODEL_DIR, POLICY_EPSILON, MODEL_FILE, HIDDEN_SIZE,
-    LEARNING_RATE_DECAY, MIN_LEARNING_RATE
+    N_OF_EPISODES, DATA_DIR, POLICY_EPSILON, MODEL_FILE, HIDDEN_SIZE,
+    LEARNING_RATE_DECAY, MIN_LEARNING_RATE, OUTPUT_FREQ, MODEL_SAVE_FREQ
 )
 from environments.taggame.taggame import TagGame
 from environments.taggame.models import TagGameQNet, feature_extractor, set_device, state_to_readable
@@ -27,39 +27,48 @@ from value_strategy import TorchValueStrategy
 def generate_run_id():
     return ''.join(random.choices(string.ascii_lowercase + string.digits, k=6))
 
-MODEL_PATH = os.path.join(MODEL_DIR, MODEL_FILE)
+import logging
 
 def setup_training(mode='train', run_id=None, model_path_arg=None):
     if mode == 'train':
         if run_id is None:
             run_id = generate_run_id()
         
-        run_model_dir = os.path.join(MODEL_DIR, run_id)
-        run_plot_dir = os.path.join("plots", run_id)
+        run_data_dir = os.path.join(DATA_DIR, run_id)
+        os.makedirs(run_data_dir, exist_ok=True)
         
-        os.makedirs(run_model_dir, exist_ok=True)
-        os.makedirs(run_plot_dir, exist_ok=True)
+        model_path = os.path.join(run_data_dir, MODEL_FILE)
+        plot_dir = run_data_dir
+        plot_path = f"{run_id}/taggame_training_final.png"
+        log_path = os.path.join(run_data_dir, "training.log")
         
-        model_path = os.path.join(run_model_dir, MODEL_FILE)
-        plot_dir = run_plot_dir
-        plot_path = f"{os.path.basename(run_plot_dir)}/taggame_training_final.png"
+        logging.basicConfig(
+            level=logging.INFO,
+            format='%(message)s',
+            handlers=[
+                logging.FileHandler(log_path),
+                logging.StreamHandler()
+            ]
+        )
         
         print(f"Training run ID: {run_id}")
-        print(f"Model will be saved to: {model_path}")
-        print(f"Plots will be saved to: {run_plot_dir}/")
+        print(f"Data will be saved to: {run_data_dir}/")
+        print(f"Model: {model_path}")
+        print(f"Plots: {run_data_dir}/")
+        print(f"Logs: {log_path}")
     else:
         if model_path_arg:
-            model_path = os.path.join(MODEL_DIR, model_path_arg)
+            model_path = os.path.join(DATA_DIR, model_path_arg)
         elif run_id:
-            model_path = os.path.join(MODEL_DIR, run_id, MODEL_FILE)
+            model_path = os.path.join(DATA_DIR, run_id, MODEL_FILE)
         else:
-            model_path = MODEL_PATH
+            model_path = os.path.join(DATA_DIR, MODEL_FILE)
         
         plot_dir = None
         plot_path = None
         run_id = None
     
-    os.makedirs(MODEL_DIR, exist_ok=True)
+    os.makedirs(DATA_DIR, exist_ok=True)
 
     environment = TagGame(render=ENABLE_RENDERING)
     environment.initialize()
@@ -91,18 +100,19 @@ def setup_training(mode='train', run_id=None, model_path_arg=None):
         print("No existing model found. Starting with a new model.")
     
     policy = EpsilonGreedyPolicy(value_strategy, POLICY_EPSILON, MIN_EPSILON, DECAY_RATE)
-    mdp_solver = SARSA(environment, policy, value_strategy, DISCOUNT_RATE, N_OF_EPISODES, True)
+    mdp_solver = QLearning(environment, policy, value_strategy, DISCOUNT_RATE, N_OF_EPISODES, True)
     
     return environment, model, value_strategy, policy, mdp_solver, model_path, plot_dir, plot_path, run_id
 
-def save_intermediate(mdp_solver, model, episode, output_freq, model_path, plot_dir):
-    if episode % output_freq == 0:
+def save_intermediate(mdp_solver, model, episode, model_path, plot_dir):
+    if episode % MODEL_SAVE_FREQ == 0:
         torch.save(model.state_dict(), model_path)
-        
+        print(f"Saved model to {model_path}")
+    
+    if episode % OUTPUT_FREQ == 0:
         plot_filename = f"{os.path.basename(plot_dir)}/taggame_training_ep{episode:06d}.png"
         mdp_solver._logger.plot_training_progress(plot_filename)
-        
-        print(f"Saved model to {model_path} and generated plot in plots/{os.path.basename(plot_dir)}/taggame_training_ep{episode:06d}.png")
+        print(f"Generated plot in {plot_dir}/taggame_training_ep{episode:06d}.png")
 
 def onexit(mdp_solver, model, training_time, model_path, plot_path, exc=None):
     torch.save(model.state_dict(), model_path)
@@ -113,12 +123,11 @@ def onexit(mdp_solver, model, training_time, model_path, plot_path, exc=None):
                 
     mdp_solver._logger.plot_training_progress(plot_path)
 
-def train(mdp_solver, model, model_path, plot_dir, plot_path, output_freq=None):
-    print("Starting SARSA training...")
+def train(mdp_solver, model, model_path, plot_dir, plot_path):
+    print("Starting Q-learning training...")
     start_time = time.time()
     try:
-        if output_freq:
-            mdp_solver.set_episode_end_callback(lambda episode: save_intermediate(mdp_solver, model, episode, output_freq, model_path, plot_dir))
+        mdp_solver.set_episode_end_callback(lambda episode: save_intermediate(mdp_solver, model, episode, model_path, plot_dir))
         mdp_solver.policy_iteration()
         onexit(mdp_solver, model, time.time() - start_time, model_path, plot_path)
     except Exception as e:
@@ -145,10 +154,8 @@ def main():
     parser.add_argument('--mode', type=str, default='train', 
                         choices=['train', 'evaluate'],
                         help='Mode to run: train or evaluate')
-    parser.add_argument('--output_freq', type=int, default=None,
-                        help='Save model and plot every N episodes during training (default: only at end)')
     parser.add_argument('--run_id', type=str, default=None,
-                        help='Run ID for evaluation mode (e.g., a3k7x2)')
+                        help='Run ID for training or evaluation (e.g., a3k7x2)')
     parser.add_argument('--model_path', type=str, default=None,
                         help='Model path relative to models/ directory for evaluation (e.g., a3k7x2/taggame_model.pt)')
                         
@@ -163,7 +170,7 @@ def main():
     environment, model, value_strategy, policy, mdp_solver, model_path, plot_dir, plot_path, run_id = setup_training(args.mode, args.run_id, args.model_path)
     try:
         if args.mode == 'train':
-            train(mdp_solver, model, model_path, plot_dir, plot_path, args.output_freq)
+            train(mdp_solver, model, model_path, plot_dir, plot_path)
         elif args.mode == 'evaluate':
             evaluate(environment, value_strategy)
         
