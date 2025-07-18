@@ -6,6 +6,7 @@ from policy import EpsilonGreedyPolicy, Policy
 from callbacks import EpisodeLogger, benchmark
 from value_strategy import ValueStrategy
 from mdp_solver import MDPSolver
+from environments.taggame.constants import REPLAY_BATCH_SIZE, REPLAY_MIN_SIZE
 
 S = TypeVar('S')
 A = TypeVar('A')
@@ -13,13 +14,14 @@ A = TypeVar('A')
 class SARSA(MDPSolver[S, A]):
     def __init__(self, mdp: MDP[S, A], policy: Policy[S, A],
                  value_strategy: ValueStrategy[S, A], discount_rate: float,
-                 policy_threshold: float, decay_epsilon: bool = False):
+                 policy_threshold: float, decay_epsilon: bool = False, 
+                 replay_buffer=None):
         super().__init__(mdp, policy, discount_rate, policy_threshold)
         self._value_strategy = value_strategy
         self._decay_epsilon = decay_epsilon
-        self._print_freq = 100
-        self._logger = EpisodeLogger(self._print_freq)
+        self._logger = EpisodeLogger()
         self._episode_end_callback = None
+        self._replay_buffer = replay_buffer
         
         policy.initialize(mdp, value_strategy)
         
@@ -38,30 +40,29 @@ class SARSA(MDPSolver[S, A]):
     def set_episode_end_callback(self, callback):
         self._episode_end_callback = callback
     
-    def _timed_update(self, state: S, action: A, target_q: float, current_episode: int = 0) -> None:
-        if current_episode % self._print_freq == 0:
-            start = time.time()
-            self._value_strategy.update(state, action, target_q)
-            end = time.time()
-            print(f"Episode {current_episode} - Update time: {(end - start) * 1000:.2f} ms")
+    def _calculate_target_q(self, reward: float, next_state: S, next_action: A, done: bool) -> float:
+        if done:
+            return reward
         else:
-            self._value_strategy.update(state, action, target_q)
+            return reward + self._discount_rate * self._value_strategy.Q(next_state, next_action)
     
-    def _timed_q(self, state: S, action: A, current_episode: int = 0) -> float:
-        if current_episode % self._print_freq == 0:
-            start = time.time()
-            q_value = self._value_strategy.Q(state, action)
-            end = time.time()
-            print(f"Episode {current_episode} - Q lookup time: {(end - start) * 1000:.2f} ms")
-            return q_value
-        else:
-            return self._value_strategy.Q(state, action)
+    def _train_on_batch(self, batch):
+        for state, action, reward, next_state, done in batch:
+            next_action = self._policy.sample(next_state)
+            target_q = self._calculate_target_q(reward, next_state, next_action, done)
+            self._value_strategy.update(state, action, target_q)
+            
+    def _train_from_replay_buffer(self, state, action, reward, next_state, done):
+        self._replay_buffer.add(state, action, reward, next_state, done)
+        
+        if self._replay_buffer.is_ready(REPLAY_MIN_SIZE):
+            batch = self._replay_buffer.sample(REPLAY_BATCH_SIZE)
+            self._train_on_batch(batch)
     
     def sarsa_main(self) -> None:
         episode = 0
         eps_policy = self._get_epsilon_policy()
-        
-        
+ 
         try:
             while episode < self._policy_threshold:
                 episode += 1
@@ -83,13 +84,11 @@ class SARSA(MDPSolver[S, A]):
                     
                     next_action = self._policy.sample(next_state) if not done else action
                     
-                    if done:
-                        target_q = reward
+                    if self._replay_buffer is not None:
+                        self._train_from_replay_buffer(state, action, reward, next_state, done)
                     else:
-                        next_q = self._value_strategy.Q(next_state, next_action)
-                        target_q = reward + self._discount_rate * next_q
-                    
-                    self._value_strategy.update(state, action, target_q)
+                        target_q = self._calculate_target_q(reward, next_state, next_action, done)
+                        self._value_strategy.update(state, action, target_q)
                     
                     state = next_state
                     action = next_action

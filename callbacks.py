@@ -3,7 +3,7 @@ import os
 import matplotlib.pyplot as plt
 from typing import Any, Callable, Dict, List, Optional, Union
 
-from environments.taggame.constants import PLOT_DIR
+from environments.taggame.constants import PLOT_DIR, LOG_FREQ
 
 
 
@@ -15,7 +15,7 @@ def benchmark(func: Callable[[], Any]) -> float:
 
 
 class EpisodeLogger:
-    def __init__(self, log_freq: int = 100):
+    def __init__(self, log_freq: int = LOG_FREQ):
         self.log_freq = log_freq
         self.episode_rewards: List[float] = []
         self.episode_steps: List[int] = []
