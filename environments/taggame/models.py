@@ -29,15 +29,25 @@ class TagGameQNet(TorchModel):
         super().__init__()
         self.fc1 = nn.Linear(input_size, hidden_size)
         self.fc2 = nn.Linear(hidden_size, hidden_size)
-        self.output = nn.Linear(hidden_size, 1)
+        self.fc3 = nn.Linear(hidden_size, hidden_size // 2)
+        self.output = nn.Linear(hidden_size // 2, 1)
         
-        nn.init.xavier_uniform_(self.fc1.weight)
-        nn.init.xavier_uniform_(self.fc2.weight)
+        # He initialization for ReLU
+        nn.init.kaiming_normal_(self.fc1.weight)
+        nn.init.kaiming_normal_(self.fc2.weight)
+        nn.init.kaiming_normal_(self.fc3.weight)
         nn.init.xavier_uniform_(self.output.weight)
+        
+        # Zero bias initialization
+        nn.init.zeros_(self.fc1.bias)
+        nn.init.zeros_(self.fc2.bias)
+        nn.init.zeros_(self.fc3.bias)
+        nn.init.zeros_(self.output.bias)
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = F.relu(self.fc1(x))            
+        x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
+        x = F.relu(self.fc3(x))
         return self.output(x)
 
 def feature_extractor(state: TagGameState, action: TagGameAction, device=None) -> torch.Tensor:
@@ -47,12 +57,6 @@ def feature_extractor(state: TagGameState, action: TagGameAction, device=None) -
     my_pos, my_vel, tag_pos, tag_vel, is_tagged = state
     action_x, action_y = action
     
-    norm_my_pos_x = my_pos[0] / WIDTH
-    norm_my_pos_y = my_pos[1] / HEIGHT
-    norm_my_vel_x = my_vel[0] / MAX_VELOCITY
-    norm_my_vel_y = my_vel[1] / MAX_VELOCITY
-    norm_tag_pos_x = tag_pos[0] / WIDTH
-    norm_tag_pos_y = tag_pos[1] / HEIGHT
     norm_tag_vel_x = tag_vel[0] / MAX_VELOCITY
     norm_tag_vel_y = tag_vel[1] / MAX_VELOCITY
     
@@ -63,28 +67,31 @@ def feature_extractor(state: TagGameState, action: TagGameAction, device=None) -
     dy = my_pos[1] - tag_pos[1]
     distance = math.sqrt(dx * dx + dy * dy) / math.sqrt(WIDTH**2 + HEIGHT**2)
     
-    if abs(norm_my_vel_x) > 0.001 or abs(norm_my_vel_y) > 0.001:
-        my_dir = math.atan2(norm_my_vel_y, norm_my_vel_x)
-        tag_dir = math.atan2(tag_pos[1] - my_pos[1], tag_pos[0] - my_pos[0])
-        rel_angle = abs((my_dir - tag_dir + math.pi) % (2 * math.pi) - math.pi) / math.pi
-    else:
-        rel_angle = 0
+    angle_to_predator = math.atan2(dy, dx)
+    normalized_angle = (angle_to_predator + math.pi) / (2 * math.pi)
+    
+    dist_to_left = my_pos[0] / WIDTH
+    dist_to_right = (WIDTH - my_pos[0]) / WIDTH
+    dist_to_top = my_pos[1] / HEIGHT
+    dist_to_bottom = (HEIGHT - my_pos[1]) / HEIGHT
+    
+    norm_diff_x = dx / WIDTH
+    norm_diff_y = dy / HEIGHT
     
     features = [
-        norm_my_pos_x,
-        norm_my_pos_y,
-        norm_my_vel_x,
-        norm_my_vel_y,
-        norm_tag_pos_x,
-        norm_tag_pos_y,
+        dist_to_left,
+        dist_to_right,
+        dist_to_top,
+        dist_to_bottom,
         norm_tag_vel_x,
         norm_tag_vel_y,
         norm_action_x,
         norm_action_y,
         distance,
-        rel_angle,
-        1.0 if is_tagged else 0.0,  # Is tagged flag
-        1.0,  # Bias term
+        normalized_angle,
+        norm_diff_x,
+        norm_diff_y,
+        1.0,
     ]
     
     return torch.tensor([features], dtype=torch.float32, device=device)

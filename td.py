@@ -1,6 +1,7 @@
 import time
 from abc import ABC, abstractmethod
 from typing import Optional, TypeVar
+from collections import deque
 
 from mdp import MDP
 from policy import EpsilonGreedyPolicy, Policy
@@ -14,13 +15,15 @@ A = TypeVar('A')
 class TD(MDPSolver[S, A], ABC):
     def __init__(self, mdp: MDP[S, A], policy: Policy[S, A],
                  value_strategy: ValueStrategy[S, A], discount_rate: float,
-                 policy_threshold: float, decay_epsilon: bool = False):
+                 policy_threshold: float, decay_epsilon: bool = False, n_step: int = 1):
         super().__init__(mdp, policy, discount_rate, policy_threshold)
         self._value_strategy = value_strategy
         self._decay_epsilon = decay_epsilon
         self._print_freq = 100
         self._logger = EpisodeLogger(self._print_freq)
         self._episode_end_callback = None
+        self._n_step = n_step
+        self._experience_buffer = deque(maxlen=n_step)
         
         policy.initialize(mdp, value_strategy)
         
@@ -54,6 +57,18 @@ class TD(MDPSolver[S, A], ABC):
         """
         pass
     
+    def compute_n_step_return(self, experiences, final_state: S, final_action: Optional[A] = None, done: bool = False) -> float:
+        n_step_return = 0.0
+
+        for i, (_, _, reward, _, _) in enumerate(experiences):
+            n_step_return += (self._discount_rate ** i) * reward
+        
+        if not done:
+            bootstrap_value = self._value_strategy.target_q(final_state, final_action)
+            n_step_return += (self._discount_rate ** len(experiences)) * bootstrap_value
+        
+        return n_step_return
+    
     def td_main(self) -> None:
         episode = 0
         eps_policy = self._get_epsilon_policy()
@@ -76,11 +91,19 @@ class TD(MDPSolver[S, A], ABC):
                     episode_reward += reward
                     
                     done = self._mdp.is_terminal(next_state)
-                    
                     next_action = self._policy.sample(next_state) if not done else None
-                    target_q = self.compute_target_q(reward, next_state, done, next_action)
+                    experience = (state, action, reward, next_state, done)
+                    self._experience_buffer.append(experience)
                     
-                    self._value_strategy.update(state, action, target_q)
+                    if len(self._experience_buffer) == self._n_step or done:
+                        first_state, first_action = self._experience_buffer[0][0], self._experience_buffer[0][1]
+                        n_step_return = self.compute_n_step_return(
+                            list(self._experience_buffer), next_state, next_action, done
+                        )
+                        
+                        self._value_strategy.update(first_state, first_action, n_step_return)
+                        if done:
+                            self._experience_buffer.clear()
                     
                     state = next_state
                     action = next_action
@@ -88,8 +111,8 @@ class TD(MDPSolver[S, A], ABC):
                 if self._decay_epsilon and eps_policy:
                     eps_policy.decay_epsilon()
                 
-                if hasattr(self._value_strategy, 'decay_learning_rate'):
-                    self._value_strategy.decay_learning_rate()
+                if hasattr(self._value_strategy, 'step_scheduler'):
+                    self._value_strategy.step_scheduler(episode_reward)
                 
                 self._logger.end_episode(episode_reward, steps)
                 
@@ -112,22 +135,22 @@ class TD(MDPSolver[S, A], ABC):
 class SARSA(TD[S, A]):
     def __init__(self, mdp: MDP[S, A], policy: Policy[S, A],
                  value_strategy: ValueStrategy[S, A], discount_rate: float,
-                 policy_threshold: float, decay_epsilon: bool = False):
-        super().__init__(mdp, policy, value_strategy, discount_rate, policy_threshold, decay_epsilon)
+                 policy_threshold: float, decay_epsilon: bool = False, n_step: int = 1):
+        super().__init__(mdp, policy, value_strategy, discount_rate, policy_threshold, decay_epsilon, n_step)
     
     def compute_target_q(self, reward: float, next_state: S, done: bool, next_action: Optional[A] = None) -> float:
         if done:
             return reward
         
-        next_q = self._value_strategy.Q(next_state, next_action)
+        next_q = self._value_strategy.target_q(next_state, next_action)
         return reward + self._discount_rate * next_q
     
 
 class QLearning(TD[S, A]):
     def __init__(self, mdp: MDP[S, A], policy: Policy[S, A],
                  value_strategy: ValueStrategy[S, A], discount_rate: float,
-                 policy_threshold: float, decay_epsilon: bool = False):
-        super().__init__(mdp, policy, value_strategy, discount_rate, policy_threshold, decay_epsilon)
+                 policy_threshold: float, decay_epsilon: bool = False, n_step: int = 1):
+        super().__init__(mdp, policy, value_strategy, discount_rate, policy_threshold, decay_epsilon, n_step)
     
     def compute_target_q(self, reward: float, next_state: S, done: bool, next_action: Optional[A] = None) -> float:
         if done:

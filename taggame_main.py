@@ -17,7 +17,9 @@ from td import SARSA, QLearning
 from environments.taggame.constants import (
     DECAY_RATE, DISCOUNT_RATE, ENABLE_RENDERING, LEARNING_RATE, MIN_EPSILON,
     N_OF_EPISODES, DATA_DIR, POLICY_EPSILON, MODEL_FILE, HIDDEN_SIZE,
-    LEARNING_RATE_DECAY, MIN_LEARNING_RATE, OUTPUT_FREQ, MODEL_SAVE_FREQ
+    MIN_LEARNING_RATE, OUTPUT_FREQ, MODEL_SAVE_FREQ,
+    TARGET_NETWORK_UPDATE_FREQ, N_STEP_RETURNS, LR_SCHEDULER_TYPE,
+    LR_SCHEDULER_PATIENCE, LR_SCHEDULER_FACTOR
 )
 from environments.taggame.taggame import TagGame
 from environments.taggame.models import TagGameQNet, feature_extractor, set_device, state_to_readable
@@ -76,12 +78,12 @@ def setup_training(mode='train', run_id=None, model_path_arg=None):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     set_device(device)
     
-    input_size = 14
+    input_size = 13
     
     model = TagGameQNet(input_size, HIDDEN_SIZE)
     model.to(device)
     
-    value_strategy = TorchValueStrategy(model, feature_extractor, LEARNING_RATE, LEARNING_RATE_DECAY, MIN_LEARNING_RATE)
+    value_strategy = TorchValueStrategy(model, feature_extractor, LEARNING_RATE, MIN_LEARNING_RATE, TARGET_NETWORK_UPDATE_FREQ, LR_SCHEDULER_TYPE, LR_SCHEDULER_PATIENCE, LR_SCHEDULER_FACTOR)
     value_strategy.initialize(environment)
     
     print(f"Using device: {device}")
@@ -100,7 +102,7 @@ def setup_training(mode='train', run_id=None, model_path_arg=None):
         print("No existing model found. Starting with a new model.")
     
     policy = EpsilonGreedyPolicy(value_strategy, POLICY_EPSILON, MIN_EPSILON, DECAY_RATE)
-    mdp_solver = QLearning(environment, policy, value_strategy, DISCOUNT_RATE, N_OF_EPISODES, True)
+    mdp_solver = QLearning(environment, policy, value_strategy, DISCOUNT_RATE, N_OF_EPISODES, True, N_STEP_RETURNS)
     
     return environment, model, value_strategy, policy, mdp_solver, model_path, plot_dir, plot_path, run_id
 

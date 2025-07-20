@@ -138,11 +138,15 @@ class TagGame(MDP[TagGameState, TagGameAction]):
         return new_state, reward
     
     def _calculate_reward(self, old_state: TagGameState, new_state: TagGameState) -> Reward:
-        _, _, _, _, old_is_tagged = old_state
-        _, _, _, _, new_is_tagged = new_state
+        old_rl_pos, old_rl_vel, old_tag_pos, old_tag_vel, old_is_tagged = old_state
+        rl_pos, rl_vel, tag_pos, tag_vel, new_is_tagged = new_state
         
         if not old_is_tagged and new_is_tagged:
             return -1.0
+        
+        # enemy is on cooldown
+        if tag_pos == old_tag_pos:
+            return 0.0
         
         return 0.01
         
@@ -226,7 +230,7 @@ class TagGame(MDP[TagGameState, TagGameAction]):
                     self.screen,
                     (255, 0, 0),  # Red
                     (int(player.static_info.pos.x), int(player.static_info.pos.y)),
-                    int(player.radius + 5),
+                    int(player.radius + 1),
                     2
                 )
         
