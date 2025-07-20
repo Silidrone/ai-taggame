@@ -119,7 +119,7 @@ class TagGame(MDP[TagGameState, TagGameAction]):
             tagger = self.tag_player
             if tagger != rl_player:
                 tagger.set_steering_behavior(
-                    DumbTagSteering(tagger, self, self.width, self.height, self.max_velocity * 0.6)
+                    DumbTagSteering(tagger, self, self.width, self.height, self.max_velocity)
                 )
                 self._handle_tagging_logic()
         
@@ -158,9 +158,9 @@ class TagGame(MDP[TagGameState, TagGameAction]):
         return True
     
     def all_possible_actions(self) -> List[TagGameAction]:
-        # 8 cardinal directions at max velocity
         actions = []
-        for angle in range(0, 360, 45):
+        for i in range(16):
+            angle = i * 22.5
             rad = math.radians(angle)
             x = int(round(math.cos(rad) * self.max_velocity))
             y = int(round(math.sin(rad) * self.max_velocity))

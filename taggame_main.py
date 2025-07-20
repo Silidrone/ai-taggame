@@ -19,7 +19,8 @@ from environments.taggame.constants import (
     N_OF_EPISODES, DATA_DIR, POLICY_EPSILON, MODEL_FILE, HIDDEN_SIZE,
     MIN_LEARNING_RATE, OUTPUT_FREQ, MODEL_SAVE_FREQ,
     TARGET_NETWORK_UPDATE_FREQ, N_STEP_RETURNS, LR_SCHEDULER_TYPE,
-    LR_SCHEDULER_PATIENCE, LR_SCHEDULER_FACTOR
+    LR_SCHEDULER_PATIENCE, LR_SCHEDULER_FACTOR, REPLAY_BUFFER_SIZE,
+    BATCH_SIZE, PER_ALPHA, PER_BETA, PER_BETA_ANNEAL_STEPS, PER_EPSILON
 )
 from environments.taggame.taggame import TagGame
 from environments.taggame.models import TagGameQNet, feature_extractor, set_device, state_to_readable
@@ -83,7 +84,12 @@ def setup_training(mode='train', run_id=None, model_path_arg=None):
     model = TagGameQNet(input_size, HIDDEN_SIZE)
     model.to(device)
     
-    value_strategy = TorchValueStrategy(model, feature_extractor, LEARNING_RATE, MIN_LEARNING_RATE, TARGET_NETWORK_UPDATE_FREQ, LR_SCHEDULER_TYPE, LR_SCHEDULER_PATIENCE, LR_SCHEDULER_FACTOR)
+    value_strategy = TorchValueStrategy(
+        model, feature_extractor, LEARNING_RATE, MIN_LEARNING_RATE, 
+        TARGET_NETWORK_UPDATE_FREQ, LR_SCHEDULER_TYPE, LR_SCHEDULER_PATIENCE, 
+        LR_SCHEDULER_FACTOR, True, REPLAY_BUFFER_SIZE, BATCH_SIZE, 
+        PER_ALPHA, PER_BETA, PER_BETA_ANNEAL_STEPS, PER_EPSILON, DISCOUNT_RATE
+    )
     value_strategy.initialize(environment)
     
     print(f"Using device: {device}")

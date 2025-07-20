@@ -53,7 +53,7 @@ class EpisodeLogger:
         avg_time = sum(last_times) / len(last_times)
         
         episode_stats = f"Episode {self.current_episode}:\n"
-        episode_stats += f"  Avg reward: {avg_reward:.2f}\n"
+        episode_stats += f"  Avg reward: {avg_reward:.4f}\n"
         episode_stats += f"  Avg steps: {avg_steps:.2f}\n"
         episode_stats += f"  Avg time: {avg_time:.4f}s"
         

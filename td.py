@@ -92,18 +92,26 @@ class TD(MDPSolver[S, A], ABC):
                     
                     done = self._mdp.is_terminal(next_state)
                     next_action = self._policy.sample(next_state) if not done else None
-                    experience = (state, action, reward, next_state, done)
-                    self._experience_buffer.append(experience)
                     
-                    if len(self._experience_buffer) == self._n_step or done:
-                        first_state, first_action = self._experience_buffer[0][0], self._experience_buffer[0][1]
-                        n_step_return = self.compute_n_step_return(
-                            list(self._experience_buffer), next_state, next_action, done
-                        )
+                    if hasattr(self._value_strategy, 'use_per') and self._value_strategy.use_per:
+                        target_q = self.compute_target_q(reward, next_state, done, next_action)
+                        current_q = self._value_strategy.Q(state, action)
+                        td_error = target_q - current_q
+                        self._value_strategy.add_experience(state, action, reward, next_state, done, td_error)
+                        self._value_strategy.update(state, action, target_q)
+                    else:
+                        experience = (state, action, reward, next_state, done)
+                        self._experience_buffer.append(experience)
                         
-                        self._value_strategy.update(first_state, first_action, n_step_return)
-                        if done:
-                            self._experience_buffer.clear()
+                        if len(self._experience_buffer) == self._n_step or done:
+                            first_state, first_action = self._experience_buffer[0][0], self._experience_buffer[0][1]
+                            n_step_return = self.compute_n_step_return(
+                                list(self._experience_buffer), next_state, next_action, done
+                            )
+                            
+                            self._value_strategy.update(first_state, first_action, n_step_return)
+                            if done:
+                                self._experience_buffer.clear()
                     
                     state = next_state
                     action = next_action
