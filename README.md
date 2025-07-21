@@ -1,24 +1,31 @@
 # ai-taggame: Reinforcement Learning Agent for a 2D Tag Game
 
-An AI agent that learns to play an evader in a 2D tag game environment using reinforcement learning. The agent uses a neural network to learn optimal evasion strategies, successfully avoiding capture through intelligent movement and spatial awareness.
+AI agent that learns an evasion behavior through Deep Q-Networks. The agent employs deep Q-learning with prioritized experience replay, target networks, n-step returns, and adaptive learning rate scheduling to develop optimal evasion strategies.
 
-Built on top of an extensible reinforcement learning framework designed to work with any MDP (Markov Decision Process) environment.
+Built on top of a custom extensible reinforcement learning framework designed to work with any MDP (Markov Decision Process) environment.
 
 ## Architecture
 
-The agent uses Q-learning reinforcement learning algorithm with neural network function approximation. The RL framework models MDP environments and is designed to be extensible, any environment that implements the MDP interface can work with the RL algorithms. The tag game environment is implemented in Python using Pygame for rendering and physics.
+The agent uses Deep Q-Network (DQN) with several advanced techniques:
+
+- **Deep Q-Learning**: Neural network function approximation with target networks for stable training
+- **Prioritized Experience Replay (PER)**: Efficient sampling of important experiences using TD-error priorities
+- **N-Step Returns**: Multi-step bootstrapping for improved sample efficiency
+- **Adaptive Learning Rate**: PyTorch schedulers that adjust learning rate based on performance
+- **Enhanced Action Space**: Fine-grained directional control for precise movement
+- **Enhanced Feature Engineering**: Spatial features including wall distances and opponent vector
+
+The RL framework models MDP environments and is designed to be extensible. Any environment implementing the MDP interface can work with the RL algorithms. The tag game environment is implemented in Python using Pygame for rendering and physics.
 
 ## Environment and Episode Structure
 
-The tag game environment operates on a simple episode structure where each episode represents a complete round of the game. An episode begins when both the tagger and the evader (our RL agent) are placed at random positions on the game field. During the episode, the RL agent attempts to avoid being tagged by the tagger while the tagger pursues the agent.
+The tag game environment operates on a simple episode structure where each episode represents a complete round of the game. An episode begins when both the tagger and the evader (our RL agent) are placed at random positions on the game field. During the episode, the RL agent attempts to avoid being tagged by the tagger, which follows a deterministic algorithm that chases our agent.
 
 When the RL agent gets tagged, the episode terminates and the environment automatically resets both players to new random positions to begin the next episode. This reset mechanism ensures that each episode starts from a fresh state, preventing the agent from becoming overly specialized to specific starting positions and encouraging it to learn general evasion strategies that work from any initial configuration.
 
 ## Development History
 
-This framework was originally built as part of the [ai-from-scratch](https://github.com/Silidrone/ai-from-scratch) repository in C++, where the neural network was implemented from scratch with custom backpropagation. The original C++ version worked with an environment that the agent communicated with over sockets, a 2D tag game written in Java that handled the game physics and rendering.
-
-The RL framework code was ported from C++ to Python, while the neural network component now uses PyTorch instead of the custom C++ implementation. The motivation for this Python port was to compare performance between custom neural network implementations and a high-end library like PyTorch.
+This framework was originally built in C++ with a custom neural network implementation featuring hand-written backpropagation. The original C++ version communicated with a 2D tag game environment written in Java over sockets. The RL framework was later ported to Python with PyTorch replacing the custom neural network implementation to achieve more efficient environment integration, more efficient neural networks, and access to many different capabilities.
 
 ## Data Management
 
@@ -32,21 +39,37 @@ When running training mode, the model is automatically loaded if it exists to co
 
 ## Neural Network Architecture
 
-- **Type**: Fully connected feedforward network
-- **Input**: 14 features (agent position, velocity, tagger position, velocity, action, distance, relative angle, tagged status, bias)
-- **Hidden layers**: 2 layers with 64 neurons each, ReLU activation
-- **Output**: Single Q-value
-- **Optimizer**: Adam with learning rate 0.001
-- **Weight initialization**: Xavier uniform
+- **Type**: Fully connected feedforward network with target network
+- **Input**: Spatial features including wall distances, opponent velocity, action vector, distance, relative angle, opponent difference vector
+- **Hidden layers**: Multi-layer architecture with ReLU activation and He initialization
+- **Output**: Single Q-value per state-action pair
+- **Optimizer**: Adam with adaptive learning rate scheduling
+- **Target Network**: Configurable update frequency for stable bootstrapping
+- **Gradient Clipping**: Prevents gradient explosion during training
 
 ## Hyperparameters
 
-- **Algorithm**: Q-learning
-- **Discount factor**: 0.99
-- **Exploration**: ε-greedy (start: 0.3, min: 0.01, decay: 0.9975)
-- **Learning rate**: 0.0001 (no decay)
-- **Training episodes**: 5,000,000
-- **Output frequency**: Every 500 episodes (model saves, plots, logs)
+### Core RL Parameters
+- **Algorithm**: Deep Q-Learning with target networks
+- **Exploration**: ε-greedy with configurable decay
+- **Training episodes**: Configurable via `N_OF_EPISODES`
+
+### Neural Network & Learning
+- **Learning rate**: Adaptive scheduling with ReduceLROnPlateau
+- **Architecture**: Multi-layer network with configurable hidden size
+- **Batch training**: Configurable batch size for stable learning
+- **Target network updates**: Periodic synchronization for stability
+
+### Experience Replay
+- **Buffer**: Configurable replay buffer with prioritized sampling
+- **Prioritization**: TD-error based experience sampling
+- **Importance sampling**: Bias correction with annealing
+- **N-step returns**: Multi-step bootstrapping
+
+### Output & Monitoring
+- **Model saves**: Configurable via `MODEL_SAVE_FREQ`
+- **Plot generation**: Configurable via `OUTPUT_FREQ`
+- **Learning rate scheduling**: Configurable patience and decay factors
 
 ## Unit Testing
 
@@ -63,19 +86,19 @@ python taggame_main.py
 
 Start/continue training with specific run ID:
 ```bash
-python taggame_main.py --run_id my_model
+python taggame_main.py --run_id a3k7x2
 ```
 
 ### Evaluation
 
 Evaluate trained agent by run ID:
 ```bash
-python taggame_main.py --mode evaluate --run_id my_model
+python taggame_main.py --mode evaluate --run_id a3k7x2
 ```
 
-Evaluate trained agent by model path:
+Evaluate trained agent by model path (relative to `DATA_DIR`):
 ```bash
-python taggame_main.py --mode evaluate --model_path my_model/taggame_model.pt
+python taggame_main.py --mode evaluate --model_path a3k7x2/taggame_model.pt
 ```
 
 ### Training Run Management
@@ -87,7 +110,7 @@ You can specify your own run ID using `--run_id` to:
 - **Name your runs**: Use meaningful names instead of random IDs
 - **Organize experiments**: Group related training runs with consistent naming
 
-Output is automatically saved every 500 episodes (configurable via `OUTPUT_FREQ` constant):
+Output is automatically saved (configurable via `OUTPUT_FREQ` constant):
 - **Model**: `data/{run_id}/taggame_model.pt`
 - **Plots**: `data/{run_id}/taggame_training_ep000500.png`, etc.
 - **Logs**: `data/{run_id}/training.log` (episode statistics)
@@ -99,44 +122,59 @@ python windy_grid_main.py
 
 ## Configuration
 
-The `environments/taggame/constants.py` file contains both hyperparameters and game parameters. The current configuration optimized for Q-learning:
+The `environments/taggame/constants.py` file contains both hyperparameters and game parameters. The current configuration optimized for advanced DQN with PER:
 
 ```python
-# Game Environment
-WIDTH = 1000
-HEIGHT = 1000
-FRAME_RATE_CAP = 3000  # High performance training
-ENABLE_RENDERING = False
-TIME_COEFFICIENT = 1
+# Environment
+WIDTH = 350
+HEIGHT = 350
+FRAME_RATE_CAP = 3000
+ENABLE_RENDERING = True
+TIME_COEFFICIENT = 0.2
+PLAYER_RADIUS = 5
 MAX_VELOCITY = 50
-PLAYER_RADIUS = 20
 TAG_COOLDOWN_MS = 10
 
-# RL Hyperparameters
+# Core RL
 DISCOUNT_RATE = 0.99
-N_OF_EPISODES = 5000000
-POLICY_EPSILON = 0.3
-MIN_EPSILON = 0.01
-DECAY_RATE = 0.9975  # Faster epsilon decay for Q-learning
-LEARNING_RATE = 0.0001  # Lower learning rate for stability
-LEARNING_RATE_DECAY = 1.0  # No decay
-MIN_LEARNING_RATE = 0.0001
-HIDDEN_SIZE = 64
+N_STEP_RETURNS = 5
+N_OF_EPISODES = 10000
+HIDDEN_SIZE = 128
 
-# Data Management
-DATA_DIR = "data/"
-MODEL_FILE = "taggame_model.pt"
-OUTPUT_FREQ = 500  # Save frequency for models/plots/logs
+# Exploration
+POLICY_EPSILON = 1.0       # Start with full exploration
+MIN_EPSILON = 0.01         # Slower decay to minimum
+DECAY_RATE = 0.995         # Gradual epsilon reduction
 
-# Game Setup
-PLAYER_COUNT = 2
-RL_PLAYER_NAME = "Sili"
+# Learning & Neural Network
+LEARNING_RATE = 0.001
+MIN_LEARNING_RATE = 0.0003
+BATCH_SIZE = 64            # Stable gradient estimates
+TARGET_NETWORK_UPDATE_FREQ = 500
+
+# Prioritized Experience Replay (PER)
+REPLAY_BUFFER_SIZE = 200000
+PER_ALPHA = 0.7            # Prioritization strength
+PER_BETA = 0.4             # Importance sampling correction
+PER_BETA_ANNEAL_STEPS = 200000
+PER_EPSILON = 1e-6
+
+# Learning Rate Scheduler
+LR_SCHEDULER_TYPE = "ReduceLROnPlateau"
+LR_SCHEDULER_PATIENCE = 1000
+LR_SCHEDULER_FACTOR = 0.5
+
+# Output & Saving
+OUTPUT_FREQ = 10           # Frequent monitoring
+MODEL_SAVE_FREQ = 10
 ```
 
-**Note**: For evaluation mode, you must set `ENABLE_RENDERING = True` and it is recommended to set `TIME_COEFFICIENT = 0.02` to slow down the simulation and better observe how the agent behaves.
+**Note**: For evaluation mode, set `ENABLE_RENDERING = True` and consider `TIME_COEFFICIENT = 0.02` to slow down visualization.
 
 ## Performance Optimization
 
-Rendering is disabled by default during training (`ENABLE_RENDERING = False`) for significant performance gains. Training runs 10-50x faster without graphics rendering, making the full 50,000 episodes practical. Enable rendering only for evaluation to observe the trained agent's behavior.
+**Rendering**: Disable during training (`ENABLE_RENDERING = False`) for performance gains. Enable only for evaluation to observe learned behaviors.
 
-The agent automatically detects and uses GPU (CUDA) when available, providing additional performance improvements for neural network training. GPU acceleration is recommended for training, while CPU is sufficient for evaluation.
+**Hardware**: Automatic GPU detection and CUDA acceleration when available. GPU recommended for training with experience replay; CPU sufficient for evaluation.
+
+**Memory Efficiency**: Prioritized experience replay provides stable learning while managing memory usage effectively.
