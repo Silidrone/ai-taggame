@@ -8,7 +8,7 @@ from environments.taggame.dumb_tag_steering import DumbTagSteering
 from environments.taggame.static_info import Point2D, StaticInfo, Vector2D
 from environments.taggame.tag_player import TagPlayer
 from mdp import MDP, Reward
-from environments.taggame.constants import (
+from environments.taggame.config import (
     FRAME_RATE_CAP, WIDTH, HEIGHT, PLAYER_RADIUS, MAX_VELOCITY,
     TIME_COEFFICIENT, TAG_COOLDOWN_MS, RL_PLAYER_NAME, CORNER_EPISODES_PERCENTAGE
 )

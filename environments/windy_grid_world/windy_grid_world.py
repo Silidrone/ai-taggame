@@ -1,7 +1,7 @@
 from typing import List, Tuple
 
 from mdp import MDP, Reward
-from environments.windy_grid_world.windy_grid_constants import (GRID_HEIGHT, GRID_WIDTH, START_STATE, GOAL_STATE, WIND_STRENGTH)
+from environments.windy_grid_world.config import (GRID_HEIGHT, GRID_WIDTH, START_STATE, GOAL_STATE, WIND_STRENGTH)
 
 GridPosition = Tuple[int, int]
 
@@ -103,3 +103,6 @@ class WindyGridWorld(MDP[GridPosition, Tuple[int, int]]):
         for c, w in enumerate(self._wind_strength):
             print(f"{w} " if w >= 0 else "  ", end='')
         print("\n    Wind strength")
+    
+    def close():
+        pass
