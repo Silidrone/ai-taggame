@@ -6,18 +6,22 @@ import torch.nn.functional as F
 
 from environments.taggame.taggame import TagGame
 from environments.taggame.config import (
-    WIDTH, HEIGHT, MAX_VELOCITY
+    WIDTH, HEIGHT, MAX_VELOCITY,
+    BATCH_SIZE, GAMMA, EPS_START, EPS_END, EPS_DECAY, TAU, LEARNING_RATE, MEMORY_SIZE,
+    HIDDEN_SIZE
 )
 from rl import DQNHyperParameters, DQN, QNetwork
 from util import standard_saver, plot_training_progress
 
+N_FEATURES = 11
+
 class TagGameQNetwork(QNetwork):
     def __init__(self, n_features: int, n_actions: int):
         super().__init__(n_features, n_actions)
-        self.layer1 = nn.Linear(n_features, 256)
-        self.layer2 = nn.Linear(256, 256)
-        self.layer3 = nn.Linear(256, 128)
-        self.layer4 = nn.Linear(128, n_actions)
+        self.layer1 = nn.Linear(n_features, HIDDEN_SIZE)
+        self.layer2 = nn.Linear(HIDDEN_SIZE, HIDDEN_SIZE)
+        self.layer3 = nn.Linear(HIDDEN_SIZE, HIDDEN_SIZE // 2)
+        self.layer4 = nn.Linear(HIDDEN_SIZE // 2, n_actions)
 
     def forward(self, x):
         x = F.relu(self.layer1(x))
@@ -25,17 +29,15 @@ class TagGameQNetwork(QNetwork):
         x = F.relu(self.layer3(x))
         return self.layer4(x)
 
-N_FEATURES = 11
-
 taggame_hyperparams = DQNHyperParameters(
-    batch_size=128,
-    gamma=0.995,
-    eps_start=1.0,
-    eps_end=0.01,
-    eps_decay=5000,
-    tau=0.005,
-    lr=1e-4,
-    memory_size=100000
+    batch_size=BATCH_SIZE,
+    gamma=GAMMA,
+    eps_start=EPS_START,
+    eps_end=EPS_END,
+    eps_decay=EPS_DECAY,
+    tau=TAU,
+    lr=LEARNING_RATE,
+    memory_size=MEMORY_SIZE
 )
 
 
@@ -71,7 +73,7 @@ def feature_extractor(state):
     ], dtype=np.float32)
 
 
-def run(mode, n_episodes, save_freq, render, logger, log_dir):
+def run(mode, n_episodes, save_freq, render, logger, log_dir, fps_limit=None, curriculum_phase=False):
     env = TagGame(render=render)
     env.initialize()
 
@@ -80,7 +82,7 @@ def run(mode, n_episodes, save_freq, render, logger, log_dir):
     checkpoint_path = os.path.join(log_dir, 'checkpoint.pt')
     if os.path.exists(checkpoint_path):
         logger.info(f"Loading checkpoint: {checkpoint_path}")
-        agent.load(checkpoint_path)
+        agent.load(checkpoint_path, curriculum_phase=curriculum_phase)
 
     if mode == 'train':
         logger.info(f"Starting training for {n_episodes} episodes")
@@ -88,12 +90,9 @@ def run(mode, n_episodes, save_freq, render, logger, log_dir):
         saver = standard_saver(agent, save_freq, log_dir, logger)
         episode_rewards, episode_durations = agent.train(n_episodes, saver)
 
-        plot_training_progress(episode_rewards, episode_durations, log_dir)
-        logger.info(f"Saved training plots to {log_dir}")
-
     elif mode == 'evaluate':
         if not os.path.exists(checkpoint_path):
             raise ValueError(f"No checkpoint found at {checkpoint_path}")
-        episode_rewards, episode_durations = agent.evaluate(n_episodes)
+        episode_rewards, episode_durations = agent.evaluate(n_episodes, fps_limit=fps_limit)
 
     env.close()

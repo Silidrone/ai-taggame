@@ -3,14 +3,16 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 def standard_saver(agent, save_freq, log_dir, logger):
-    def saver(episode):
+    def saver(episode, episode_rewards, episode_durations):
         if episode % save_freq == 0:
             checkpoint_path = os.path.join(log_dir, 'checkpoint.pt')
             agent.save(checkpoint_path)
             logger.info(f"Saved checkpoint at episode {episode}")
+            plot_training_progress(episode_rewards, episode_durations, log_dir, episode)
+            logger.info(f"Updated training plots")
     return saver
 
-def plot_training_progress(episode_rewards, episode_durations, log_dir):
+def plot_training_progress(episode_rewards, episode_durations, log_dir, episode):
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 5))
 
     ax1.plot(episode_rewards, alpha=0.3, label='Episode Reward')
@@ -34,6 +36,6 @@ def plot_training_progress(episode_rewards, episode_durations, log_dir):
     ax2.grid(True, alpha=0.3)
 
     plt.tight_layout()
-    plot_path = os.path.join(log_dir, 'training_progress.png')
+    plot_path = os.path.join(log_dir, f'training_progress_ep{episode}.png')
     plt.savefig(plot_path, dpi=150)
     plt.close()

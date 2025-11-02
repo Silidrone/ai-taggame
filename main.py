@@ -5,6 +5,7 @@ import sys
 import random
 import string
 import warnings
+import signal
 
 warnings.filterwarnings("ignore", category=UserWarning)
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "1"
@@ -45,6 +46,10 @@ def main():
                         help='Save model every N episodes (train mode only, defaults to 5%% of n-episodes)')
     parser.add_argument('--render', action='store_true',
                         help='Enable rendering')
+    parser.add_argument('--fps', type=int, default=60,
+                        help='FPS limit for evaluation mode (to watch agent behavior)')
+    parser.add_argument('--curriculum-phase', action='store_true',
+                        help='Continue training with reset epsilon (for curriculum learning - keeps episodes/plots, resets exploration)')
 
     args = parser.parse_args()
 
@@ -63,22 +68,26 @@ def main():
     try:
         if args.env == 'taggame':
             from environments.taggame.run import run
-            run(args.mode, args.n_episodes, args.save_freq, args.render, logger, log_dir)
+            run(args.mode, args.n_episodes, args.save_freq, args.render, logger, log_dir, args.fps, args.curriculum_phase)
         elif args.env == 'gridworld':
             from environments.windy_grid_world.run import run
-            run(args.mode, args.n_episodes, args.save_freq, args.render, logger, log_dir)
+            run(args.mode, args.n_episodes, args.save_freq, args.render, logger, log_dir, args.fps, args.curriculum_phase)
     except KeyboardInterrupt:
-        logger.info("Training interrupted by user")
+        pass
     except Exception as e:
         import pygame
         if isinstance(e, pygame.error) and "display Surface quit" in str(e):
-            logger.info("Training interrupted (display closed)")
+            pass
         else:
             logger.error(f"Error during {args.mode}: {e}")
             raise
     finally:
-        logger.info(f"Run ID: {args.run_id}")
-        logger.info(f"Log directory: {log_dir}")
+        try:
+            signal.signal(signal.SIGINT, signal.SIG_IGN)
+            logger.info(f"Run ID: {args.run_id}")
+            logger.info(f"Log directory: {log_dir}")
+        except:
+            pass
 
 if __name__ == '__main__':
     main()

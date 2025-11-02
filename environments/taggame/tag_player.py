@@ -36,7 +36,6 @@ class TagPlayer:
             (self.static_info.pos.y - self.radius <= 0 and velocity.y < 0)):
             velocity = Vector2D(velocity.x, 0)
 
-        # CRITICAL: Update self.velocity to reflect actual post-collision velocity
         self.velocity = velocity
         self.static_info.update(velocity, time)
     

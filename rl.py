@@ -2,6 +2,7 @@ import math
 import random
 import logging
 import numpy as np
+import time
 from abc import ABC, abstractmethod
 from collections import deque, namedtuple
 from itertools import count
@@ -73,24 +74,42 @@ class DQN:
 
         self.steps_done = 0
         self.current_episode = 0
+        self.episode_rewards = []
+        self.episode_durations = []
+        self.curriculum_phase = False
 
     def save(self, path):
-        torch.save({
+        save_dict = {
             'episode': self.current_episode,
             'policy_net': self.policy_net.state_dict(),
             'target_net': self.target_net.state_dict(),
             'optimizer': self.optimizer.state_dict(),
-            'steps_done': self.steps_done,
-        }, path)
+            'episode_rewards': self.episode_rewards,
+            'episode_durations': self.episode_durations,
+        }
 
-    def load(self, path):
+        if not self.curriculum_phase:
+            save_dict['steps_done'] = self.steps_done
+
+        torch.save(save_dict, path)
+
+    def load(self, path, curriculum_phase=False):
         checkpoint = torch.load(path, map_location=self.device)
         self.policy_net.load_state_dict(checkpoint['policy_net'])
         self.target_net.load_state_dict(checkpoint['target_net'])
         self.optimizer.load_state_dict(checkpoint['optimizer'])
-        self.steps_done = checkpoint['steps_done']
         self.current_episode = checkpoint['episode']
-        self.logger.info(f"Loaded checkpoint from episode {self.current_episode}")
+        self.episode_rewards = checkpoint.get('episode_rewards', [])
+        self.episode_durations = checkpoint.get('episode_durations', [])
+
+        self.curriculum_phase = curriculum_phase
+
+        if not curriculum_phase:
+            self.steps_done = checkpoint.get('steps_done', 0)
+            self.logger.info(f"Loaded checkpoint from episode {self.current_episode}")
+        else:
+            self.steps_done = 0
+            self.logger.info(f"Loaded checkpoint from episode {self.current_episode} (curriculum phase: epsilon reset to {self.hyperparams.eps_start})")
 
     def epsilon_greedy_sample(self, state, policy_net, n_actions, steps_done):
         sample = random.random()
@@ -147,9 +166,6 @@ class DQN:
 
         memory = ReplayMemory(self.hyperparams.memory_size)
 
-        episode_durations = []
-        episode_rewards = []
-
         self.logger.info(f"Training on {device}")
         self.logger.info(f"Episodes: {n_episodes}")
         self.logger.info("-" * 60)
@@ -199,16 +215,16 @@ class DQN:
                 self.target_net.load_state_dict(target_net_state_dict)
 
                 if done:
-                    episode_durations.append(t + 1)
-                    episode_rewards.append(total_reward)
+                    self.episode_durations.append(t + 1)
+                    self.episode_rewards.append(total_reward)
                     break
 
             self.current_episode += 1
 
             # Print progress
             if self.current_episode % 100 == 0:
-                avg_duration = np.mean(episode_durations[-100:])
-                avg_reward = np.mean(episode_rewards[-100:])
+                avg_duration = np.mean(self.episode_durations[-100:])
+                avg_reward = np.mean(self.episode_rewards[-100:])
                 eps = self.hyperparams.eps_end + (self.hyperparams.eps_start - self.hyperparams.eps_end) * math.exp(-1. * self.steps_done / self.hyperparams.eps_decay)
                 self.logger.info(f"Episode {self.current_episode}/{self.current_episode + n_episodes - i_episode - 1} | "
                     f"Avg Steps: {avg_duration:.1f} | "
@@ -216,14 +232,16 @@ class DQN:
                     f"Epsilon: {eps:.3f}")
 
             if saver is not None:
-                saver(self.current_episode)
+                saver(self.current_episode, self.episode_rewards, self.episode_durations)
 
         self.logger.info("Training complete!")
 
-        return episode_rewards, episode_durations
+        return self.episode_rewards, self.episode_durations
 
-    def evaluate(self, n_episodes=100):
+    def evaluate(self, n_episodes=100, fps_limit=None):
         self.logger.info(f"Evaluating agent for {n_episodes} episodes...")
+        if fps_limit:
+            self.logger.info(f"FPS limit: {fps_limit}")
 
         self.policy_net.eval()
 
@@ -239,6 +257,9 @@ class DQN:
             steps = 0
 
             while True:
+                if fps_limit:
+                    step_start = time.time()
+
                 steps += 1
 
                 with torch.no_grad():
@@ -264,6 +285,12 @@ class DQN:
                     episode_rewards.append(total_reward)
                     episode_durations.append(steps)
                     break
+
+                if fps_limit:
+                    elapsed = time.time() - step_start
+                    target_time = 1.0 / fps_limit
+                    if elapsed < target_time:
+                        time.sleep(target_time - elapsed)
 
             if (i_episode + 1) % 10 == 0:
                 self.logger.info(f"Episode {i_episode + 1}/{n_episodes} | Reward: {total_reward:.2f} | Steps: {steps}")

@@ -10,7 +10,8 @@ from environments.taggame.tag_player import TagPlayer
 from mdp import MDP, Reward
 from environments.taggame.config import (
     FRAME_RATE_CAP, WIDTH, HEIGHT, PLAYER_RADIUS, MAX_VELOCITY,
-    TIME_COEFFICIENT, TAG_COOLDOWN_MS, RL_PLAYER_NAME, CORNER_EPISODES_PERCENTAGE
+    TIME_COEFFICIENT, TAG_COOLDOWN_MS, RL_PLAYER_NAME, CORNER_EPISODES_PERCENTAGE,
+    PREDATOR_MAX_SPEED_RATIO, AGENT_MAX_SPEED_RATIO
 )
 
 Position = Tuple[float, float]
@@ -113,7 +114,7 @@ class TagGame(MDP[TagGameState, TagGameAction]):
         x, y = action
         action_vector = Vector2D(x, y)
         if action_vector.length() > 0:
-            action_vector = action_vector.normalize().times(self.max_velocity)
+            action_vector = action_vector.normalize().times(self.max_velocity * AGENT_MAX_SPEED_RATIO)
         
         rl_player.set_velocity(action_vector)
         
@@ -124,7 +125,7 @@ class TagGame(MDP[TagGameState, TagGameAction]):
             tagger = self.tag_player
             if tagger != rl_player:
                 tagger.set_steering_behavior(
-                    DumbTagSteering(tagger, self, self.width, self.height, self.max_velocity)
+                    DumbTagSteering(tagger, self, self.width, self.height, self.max_velocity * PREDATOR_MAX_SPEED_RATIO)
                 )
                 self._handle_tagging_logic()
         
