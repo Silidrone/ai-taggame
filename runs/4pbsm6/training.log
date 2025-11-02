@@ -1,0 +1,73 @@
+2025-11-02 13:53:39,857 [INFO] Run ID: 4pbsm6
+2025-11-02 13:53:39,857 [INFO] Log directory: ./runs/4pbsm6
+2025-11-02 13:53:42,796 [INFO] Starting training for 1000 episodes
+2025-11-02 13:53:42,796 [INFO] State features: 11
+2025-11-02 13:53:42,796 [INFO] Actions: 16
+2025-11-02 13:53:42,796 [INFO] Training on cpu
+2025-11-02 13:53:42,796 [INFO] Episodes: 1000
+2025-11-02 13:53:42,797 [INFO] ------------------------------------------------------------
+2025-11-02 13:53:50,337 [INFO] Saved checkpoint at episode 50
+2025-11-02 13:53:57,745 [INFO] Episode 100/1000 | Avg Steps: 32.5 | Avg Reward: 1.87 | Epsilon: 0.527
+2025-11-02 13:53:57,753 [INFO] Saved checkpoint at episode 100
+2025-11-02 13:54:09,322 [INFO] Saved checkpoint at episode 150
+2025-11-02 13:54:22,700 [INFO] Episode 200/1000 | Avg Steps: 40.7 | Avg Reward: 2.75 | Epsilon: 0.239
+2025-11-02 13:54:22,708 [INFO] Saved checkpoint at episode 200
+2025-11-02 13:54:37,350 [INFO] Saved checkpoint at episode 250
+2025-11-02 13:54:55,373 [INFO] Episode 300/1000 | Avg Steps: 48.2 | Avg Reward: 3.52 | Epsilon: 0.097
+2025-11-02 13:54:55,381 [INFO] Saved checkpoint at episode 300
+2025-11-02 13:55:19,980 [INFO] Saved checkpoint at episode 350
+2025-11-02 13:55:48,913 [INFO] Episode 400/1000 | Avg Steps: 78.5 | Avg Reward: 6.55 | Epsilon: 0.028
+2025-11-02 13:55:48,921 [INFO] Saved checkpoint at episode 400
+2025-11-02 13:56:30,509 [INFO] Saved checkpoint at episode 450
+2025-11-02 13:57:41,752 [INFO] Episode 500/1000 | Avg Steps: 164.1 | Avg Reward: 15.10 | Epsilon: 0.011
+2025-11-02 13:57:41,758 [INFO] Saved checkpoint at episode 500
+2025-11-02 14:16:02,407 [INFO] Run ID: 4pbsm6
+2025-11-02 14:16:02,407 [INFO] Log directory: ./runs/4pbsm6
+2025-11-02 14:16:05,427 [INFO] Loading checkpoint: ./runs/4pbsm6/checkpoint.pt
+2025-11-02 14:16:05,436 [INFO] Loaded checkpoint from episode 500
+2025-11-02 14:16:05,437 [INFO] Starting training for 1000 episodes
+2025-11-02 14:16:05,437 [INFO] State features: 11
+2025-11-02 14:16:05,437 [INFO] Actions: 16
+2025-11-02 14:16:05,437 [INFO] Training on cpu
+2025-11-02 14:16:05,437 [INFO] Episodes: 1000
+2025-11-02 14:16:05,437 [INFO] ------------------------------------------------------------
+2025-11-02 14:16:48,005 [INFO] Saved checkpoint at episode 550
+2025-11-02 14:17:47,111 [INFO] Episode 600/1500 | Avg Steps: 201.0 | Avg Reward: 18.77 | Epsilon: 0.010
+2025-11-02 14:17:47,116 [INFO] Saved checkpoint at episode 600
+2025-11-02 14:18:41,048 [INFO] Saved checkpoint at episode 650
+2025-11-02 14:19:39,207 [INFO] Episode 700/1500 | Avg Steps: 214.3 | Avg Reward: 20.13 | Epsilon: 0.010
+2025-11-02 14:19:39,212 [INFO] Saved checkpoint at episode 700
+2025-11-02 14:20:39,911 [INFO] Saved checkpoint at episode 750
+2025-11-02 14:21:42,451 [INFO] Episode 800/1500 | Avg Steps: 224.3 | Avg Reward: 21.13 | Epsilon: 0.010
+2025-11-02 14:21:42,458 [INFO] Saved checkpoint at episode 800
+2025-11-02 14:22:39,542 [INFO] Saved checkpoint at episode 850
+2025-11-02 14:23:38,749 [INFO] Episode 900/1500 | Avg Steps: 203.6 | Avg Reward: 19.06 | Epsilon: 0.010
+2025-11-02 14:23:38,775 [INFO] Saved checkpoint at episode 900
+2025-11-02 14:23:50,440 [INFO] Training interrupted by user
+2025-11-02 14:23:55,828 [INFO] Run ID: 4pbsm6
+2025-11-02 14:23:55,829 [INFO] Log directory: ./runs/4pbsm6
+2025-11-02 14:23:58,835 [INFO] Loading checkpoint: ./runs/4pbsm6/checkpoint.pt
+2025-11-02 14:23:58,844 [INFO] Loaded checkpoint from episode 900
+2025-11-02 14:23:58,844 [INFO] Starting training for 3000 episodes
+2025-11-02 14:23:58,844 [INFO] State features: 11
+2025-11-02 14:23:58,844 [INFO] Actions: 16
+2025-11-02 14:23:58,844 [INFO] Training on cpu
+2025-11-02 14:23:58,844 [INFO] Episodes: 3000
+2025-11-02 14:23:58,844 [INFO] ------------------------------------------------------------
+2025-11-02 14:25:03,401 [INFO] Episode 1000/3900 | Avg Steps: 133.3 | Avg Reward: 11.98 | Epsilon: 0.010
+2025-11-02 14:26:50,460 [ERROR] Error during train: display Surface quit
+2025-11-02 14:26:50,461 [INFO] Run ID: 4pbsm6
+2025-11-02 14:26:50,461 [INFO] Log directory: ./runs/4pbsm6
+2025-11-02 14:27:36,104 [INFO] Run ID: 4pbsm6
+2025-11-02 14:27:36,104 [INFO] Log directory: ./runs/4pbsm6
+2025-11-02 14:27:39,003 [INFO] Loading checkpoint: ./runs/4pbsm6/checkpoint.pt
+2025-11-02 14:27:39,012 [INFO] Loaded checkpoint from episode 900
+2025-11-02 14:27:39,012 [INFO] Starting training for 3000 episodes
+2025-11-02 14:27:39,012 [INFO] State features: 11
+2025-11-02 14:27:39,012 [INFO] Actions: 16
+2025-11-02 14:27:39,012 [INFO] Training on cpu
+2025-11-02 14:27:39,012 [INFO] Episodes: 3000
+2025-11-02 14:27:39,012 [INFO] ------------------------------------------------------------
+2025-11-02 14:27:40,259 [INFO] Training interrupted (display closed)
+2025-11-02 14:27:40,260 [INFO] Run ID: 4pbsm6
+2025-11-02 14:27:40,261 [INFO] Log directory: ./runs/4pbsm6

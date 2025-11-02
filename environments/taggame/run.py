@@ -1,13 +1,15 @@
 import math
+import os
 import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 
 from environments.taggame.taggame import TagGame
 from environments.taggame.config import (
-    WIDTH, HEIGHT, MAX_VELOCITY, ENABLE_RENDERING
+    WIDTH, HEIGHT, MAX_VELOCITY
 )
 from rl import DQNHyperParameters, DQN, QNetwork
+from util import standard_saver, plot_training_progress
 
 class TagGameQNetwork(QNetwork):
     def __init__(self, n_features: int, n_actions: int):
@@ -23,7 +25,6 @@ class TagGameQNetwork(QNetwork):
         x = F.relu(self.layer3(x))
         return self.layer4(x)
 
-N_EPISODES = 20000
 N_FEATURES = 11
 
 taggame_hyperparams = DQNHyperParameters(
@@ -41,21 +42,17 @@ taggame_hyperparams = DQNHyperParameters(
 def feature_extractor(state):
     my_pos, my_vel, tag_pos, tag_vel, is_tagged = state
 
-    # Wall distances
     dist_left = my_pos[0] / WIDTH
     dist_right = (WIDTH - my_pos[0]) / WIDTH
     dist_top = my_pos[1] / HEIGHT
     dist_bottom = (HEIGHT - my_pos[1]) / HEIGHT
 
-    # Agent velocity
     norm_vel_x = my_vel[0] / MAX_VELOCITY
     norm_vel_y = my_vel[1] / MAX_VELOCITY
 
-    # Tagger velocity
     norm_tagger_vel_x = tag_vel[0] / MAX_VELOCITY
     norm_tagger_vel_y = tag_vel[1] / MAX_VELOCITY
 
-    # Relative position to tagger
     dx = my_pos[0] - tag_pos[0]
     dy = my_pos[1] - tag_pos[1]
     distance = math.sqrt(dx * dx + dy * dy) / math.sqrt(WIDTH**2 + HEIGHT**2)
@@ -63,7 +60,6 @@ def feature_extractor(state):
     angle = math.atan2(dy, dx)
     normalized_angle = (angle + math.pi) / (2 * math.pi)
 
-    # Bias term
     bias = 1.0
 
     return np.array([
@@ -75,15 +71,29 @@ def feature_extractor(state):
     ], dtype=np.float32)
 
 
-def main():
-    env = TagGame(render=ENABLE_RENDERING)
+def run(mode, n_episodes, save_freq, render, logger, log_dir):
+    env = TagGame(render=render)
     env.initialize()
 
-    agent = DQN(env, feature_extractor, N_FEATURES, taggame_hyperparams, TagGameQNetwork)
-    agent.train(N_EPISODES)
+    agent = DQN(env, feature_extractor, N_FEATURES, taggame_hyperparams, TagGameQNetwork, logger)
 
-    env.close()    
+    checkpoint_path = os.path.join(log_dir, 'checkpoint.pt')
+    if os.path.exists(checkpoint_path):
+        logger.info(f"Loading checkpoint: {checkpoint_path}")
+        agent.load(checkpoint_path)
 
+    if mode == 'train':
+        logger.info(f"Starting training for {n_episodes} episodes")
 
-if __name__ == '__main__':
-    main()
+        saver = standard_saver(agent, save_freq, log_dir, logger)
+        episode_rewards, episode_durations = agent.train(n_episodes, saver)
+
+        plot_training_progress(episode_rewards, episode_durations, log_dir)
+        logger.info(f"Saved training plots to {log_dir}")
+
+    elif mode == 'evaluate':
+        if not os.path.exists(checkpoint_path):
+            raise ValueError(f"No checkpoint found at {checkpoint_path}")
+        episode_rewards, episode_durations = agent.evaluate(n_episodes)
+
+    env.close()

@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
@@ -5,6 +6,7 @@ import torch.nn.functional as F
 from environments.windy_grid_world.windy_grid_world import WindyGridWorld
 from environments.windy_grid_world.config import GRID_WIDTH, GRID_HEIGHT
 from rl import DQNHyperParameters, DQN, QNetwork
+from util import standard_saver, plot_training_progress
 
 class GridWorldQNetwork(QNetwork):
     def __init__(self, n_features: int, n_actions: int):
@@ -18,6 +20,8 @@ class GridWorldQNetwork(QNetwork):
         x = F.relu(self.layer2(x))
         return self.layer3(x)
 
+N_FEATURES = GRID_WIDTH * GRID_HEIGHT
+
 gridworld_hyperparams = DQNHyperParameters(
     batch_size=128,
     gamma=0.99,
@@ -29,11 +33,7 @@ gridworld_hyperparams = DQNHyperParameters(
     memory_size=10000
 )
 
-N_EPISODES = 1000
-N_FEATURES = GRID_WIDTH * GRID_HEIGHT
-
 def feature_extractor(state):
-    """Convert grid state (row, col) to one-hot encoded features"""
     row, col = state
     features = np.zeros(GRID_WIDTH * GRID_HEIGHT, dtype=np.float32)
     idx = row * GRID_WIDTH + col
@@ -41,15 +41,29 @@ def feature_extractor(state):
     return features
 
 
-def main():
+def run(mode, n_episodes, save_freq, render, logger, log_dir):
     env = WindyGridWorld()
     env.initialize()
 
-    agent = DQN(env, feature_extractor, N_FEATURES, gridworld_hyperparams, GridWorldQNetwork)
-    agent.train(N_EPISODES)
+    agent = DQN(env, feature_extractor, N_FEATURES, gridworld_hyperparams, GridWorldQNetwork, logger)
+
+    checkpoint_path = os.path.join(log_dir, 'checkpoint.pt')
+    if os.path.exists(checkpoint_path):
+        logger.info(f"Loading checkpoint: {checkpoint_path}")
+        agent.load(checkpoint_path)
+
+    if mode == 'train':
+        logger.info(f"Starting training for {n_episodes} episodes")
+
+        saver = standard_saver(agent, save_freq, log_dir, logger)
+        episode_rewards, episode_durations = agent.train(n_episodes, saver)
+
+        plot_training_progress(episode_rewards, episode_durations, log_dir)
+        logger.info(f"Saved training plots to {log_dir}")
+
+    elif mode == 'evaluate':
+        if not os.path.exists(checkpoint_path):
+            raise ValueError(f"No checkpoint found at {checkpoint_path}")
+        episode_rewards, episode_durations = agent.evaluate(n_episodes)
 
     env.close()
-
-
-if __name__ == '__main__':
-    main()

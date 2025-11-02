@@ -1,5 +1,6 @@
 import math
 import random
+import logging
 import numpy as np
 from abc import ABC, abstractmethod
 from collections import deque, namedtuple
@@ -9,7 +10,11 @@ from dataclasses import dataclass
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import torch.nn.functional as F
+
+class TrainingInterrupted(Exception):
+    pass
+
+logger = logging.getLogger(__name__)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -49,7 +54,7 @@ class QNetwork(nn.Module, ABC):
         pass
 
 class DQN:
-    def __init__(self, env, feature_extractor, n_features, hyperparams: DQNHyperParameters, qnetwork_class: type[QNetwork]):
+    def __init__(self, env, feature_extractor, n_features, hyperparams: DQNHyperParameters, qnetwork_class: type[QNetwork], logger):
         self.env = env
         self.n_features = n_features
         self.all_actions = self.env.all_possible_actions()
@@ -57,6 +62,35 @@ class DQN:
         self.feature_extractor = feature_extractor
         self.hyperparams = hyperparams
         self.qnetwork_class = qnetwork_class
+        self.device = device
+        self.logger = logger
+
+        self.policy_net = self.qnetwork_class(self.n_features, self.n_actions).to(self.device)
+        self.target_net = self.qnetwork_class(self.n_features, self.n_actions).to(self.device)
+        self.target_net.load_state_dict(self.policy_net.state_dict())
+
+        self.optimizer = optim.AdamW(self.policy_net.parameters(), lr=self.hyperparams.lr, amsgrad=True)
+
+        self.steps_done = 0
+        self.current_episode = 0
+
+    def save(self, path):
+        torch.save({
+            'episode': self.current_episode,
+            'policy_net': self.policy_net.state_dict(),
+            'target_net': self.target_net.state_dict(),
+            'optimizer': self.optimizer.state_dict(),
+            'steps_done': self.steps_done,
+        }, path)
+
+    def load(self, path):
+        checkpoint = torch.load(path, map_location=self.device)
+        self.policy_net.load_state_dict(checkpoint['policy_net'])
+        self.target_net.load_state_dict(checkpoint['target_net'])
+        self.optimizer.load_state_dict(checkpoint['optimizer'])
+        self.steps_done = checkpoint['steps_done']
+        self.current_episode = checkpoint['episode']
+        self.logger.info(f"Loaded checkpoint from episode {self.current_episode}")
 
     def epsilon_greedy_sample(self, state, policy_net, n_actions, steps_done):
         sample = random.random()
@@ -107,24 +141,18 @@ class DQN:
         torch.nn.utils.clip_grad_value_(policy_net.parameters(), 100)
         optimizer.step()
         
-    def train(self, n_episodes):
-        print(f"State features: {self.n_features}")
-        print(f"Actions: {self.n_actions}")
+    def train(self, n_episodes, saver=None):
+        self.logger.info(f"State features: {self.n_features}")
+        self.logger.info(f"Actions: {self.n_actions}")
 
-        policy_net = self.qnetwork_class(self.n_features, self.n_actions).to(device)
-        target_net = self.qnetwork_class(self.n_features, self.n_actions).to(device)
-        target_net.load_state_dict(policy_net.state_dict())
-
-        optimizer = optim.AdamW(policy_net.parameters(), lr=self.hyperparams.lr, amsgrad=True)
         memory = ReplayMemory(self.hyperparams.memory_size)
 
-        steps_done = 0
         episode_durations = []
         episode_rewards = []
 
-        print(f"Training on {device}")
-        print(f"Episodes: {n_episodes}")
-        print("-" * 60)
+        self.logger.info(f"Training on {device}")
+        self.logger.info(f"Episodes: {n_episodes}")
+        self.logger.info("-" * 60)
 
         for i_episode in range(n_episodes):
             # Reset using TagGame
@@ -135,7 +163,7 @@ class DQN:
             total_reward = 0
             for t in count():
                 # Select action
-                action_idx = self.epsilon_greedy_sample(state, policy_net, self.n_actions, steps_done)
+                action_idx = self.epsilon_greedy_sample(state, self.policy_net, self.n_actions, self.steps_done)
 
                 # Execute action in TagGame
                 game_action = self.all_actions[action_idx.item()]
@@ -143,7 +171,7 @@ class DQN:
 
                 total_reward += reward
                 reward_tensor = torch.tensor([reward], device=device)
-                steps_done += 1
+                self.steps_done += 1
 
                 # Check if terminal
                 done = self.env.is_terminal(next_game_state)
@@ -161,42 +189,92 @@ class DQN:
                 state = next_state
                 game_state = next_game_state
 
-                self.update(memory, policy_net, target_net, optimizer)
+                self.update(memory, self.policy_net, self.target_net, self.optimizer)
 
                 # Soft update of target network
-                target_net_state_dict = target_net.state_dict()
-                policy_net_state_dict = policy_net.state_dict()
+                target_net_state_dict = self.target_net.state_dict()
+                policy_net_state_dict = self.policy_net.state_dict()
                 for key in policy_net_state_dict:
                     target_net_state_dict[key] = policy_net_state_dict[key] * self.hyperparams.tau + target_net_state_dict[key] * (1 - self.hyperparams.tau)
-                target_net.load_state_dict(target_net_state_dict)
+                self.target_net.load_state_dict(target_net_state_dict)
 
                 if done:
                     episode_durations.append(t + 1)
                     episode_rewards.append(total_reward)
                     break
 
+            self.current_episode += 1
+
             # Print progress
-            if (i_episode + 1) % 100 == 0:
+            if self.current_episode % 100 == 0:
                 avg_duration = np.mean(episode_durations[-100:])
                 avg_reward = np.mean(episode_rewards[-100:])
-                eps = self.hyperparams.eps_end + (self.hyperparams.eps_start - self.hyperparams.eps_end) * math.exp(-1. * steps_done / self.hyperparams.eps_decay)
-                print(f"Episode {i_episode + 1}/{n_episodes} | "
+                eps = self.hyperparams.eps_end + (self.hyperparams.eps_start - self.hyperparams.eps_end) * math.exp(-1. * self.steps_done / self.hyperparams.eps_decay)
+                self.logger.info(f"Episode {self.current_episode}/{self.current_episode + n_episodes - i_episode - 1} | "
                     f"Avg Steps: {avg_duration:.1f} | "
                     f"Avg Reward: {avg_reward:.2f} | "
                     f"Epsilon: {eps:.3f}")
 
-            # Save checkpoint
-            if (i_episode + 1) % 1000 == 0:
-                torch.save({
-                    'episode': i_episode + 1,
-                    'policy_net': policy_net.state_dict(),
-                    'target_net': target_net.state_dict(),
-                    'optimizer': optimizer.state_dict(),
-                    'steps_done': steps_done,
-                }, f'checkpoint_ep{i_episode + 1}.pt')
-                print(f"Saved checkpoint at episode {i_episode + 1}")
+            if saver is not None:
+                saver(self.current_episode)
 
-        print("Training complete!")
-        torch.save(policy_net.state_dict(), 'policy_net_final.pt')
+        self.logger.info("Training complete!")
 
-        
+        return episode_rewards, episode_durations
+
+    def evaluate(self, n_episodes=100):
+        self.logger.info(f"Evaluating agent for {n_episodes} episodes...")
+
+        self.policy_net.eval()
+
+        episode_rewards = []
+        episode_durations = []
+
+        for i_episode in range(n_episodes):
+            game_state = self.env.reset()
+            state_features = self.feature_extractor(game_state)
+            state = torch.tensor(state_features, dtype=torch.float32, device=self.device).unsqueeze(0)
+
+            total_reward = 0
+            steps = 0
+
+            while True:
+                steps += 1
+
+                with torch.no_grad():
+                    q_values = self.policy_net(state)
+                    action_idx = q_values.max(1).indices.view(1, 1).item()
+
+                game_action = self.all_actions[action_idx]
+                next_game_state, reward = self.env.step(game_state, game_action)
+                total_reward += reward
+
+                done = self.env.is_terminal(next_game_state)
+
+                if done:
+                    episode_rewards.append(total_reward)
+                    episode_durations.append(steps)
+                    break
+
+                next_state_features = self.feature_extractor(next_game_state)
+                state = torch.tensor(next_state_features, dtype=torch.float32, device=self.device).unsqueeze(0)
+                game_state = next_game_state
+
+                if steps > 10000:
+                    episode_rewards.append(total_reward)
+                    episode_durations.append(steps)
+                    break
+
+            if (i_episode + 1) % 10 == 0:
+                self.logger.info(f"Episode {i_episode + 1}/{n_episodes} | Reward: {total_reward:.2f} | Steps: {steps}")
+
+        self.policy_net.train()
+
+        self.logger.info(f"Evaluation Results:")
+        self.logger.info(f"Episodes: {n_episodes}")
+        self.logger.info(f"Average Reward: {np.mean(episode_rewards):.2f} ± {np.std(episode_rewards):.2f}")
+        self.logger.info(f"Average Steps: {np.mean(episode_durations):.1f} ± {np.std(episode_durations):.1f}")
+        self.logger.info(f"Min Reward: {np.min(episode_rewards):.2f}")
+        self.logger.info(f"Max Reward: {np.max(episode_rewards):.2f}")
+
+        return episode_rewards, episode_durations
