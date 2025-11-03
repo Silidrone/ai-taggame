@@ -13,11 +13,12 @@ from environments.taggame.config import (
     TIME_COEFFICIENT, TAG_COOLDOWN_MS, RL_PLAYER_NAME, CORNER_EPISODES_PERCENTAGE,
     PREDATOR_MAX_SPEED_RATIO, AGENT_MAX_SPEED_RATIO
 )
+from environments.taggame import config
 
 Position = Tuple[float, float]
 Velocity = Tuple[float, float]
 TagGameState = Tuple[Position, Velocity, Position, Velocity, bool]
-TagGameAction = Tuple[int, int]
+TagGameAction = Tuple[float, float]
 
         
 class TagGame(MDP[TagGameState, TagGameAction]):
@@ -35,6 +36,7 @@ class TagGame(MDP[TagGameState, TagGameAction]):
         self.tag_changed_time = 0
         self.render_enabled = render
         self.screen = None
+        self.current_episode_steps = 0
         
         if self.render_enabled:
             pygame.init()
@@ -51,6 +53,7 @@ class TagGame(MDP[TagGameState, TagGameAction]):
         self.players.clear()
         self.tag_player = None
         self.tag_changed_time = 0
+        self.current_episode_steps = 0
         
         player_count = 2
         
@@ -108,7 +111,8 @@ class TagGame(MDP[TagGameState, TagGameAction]):
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.close()
-                    
+
+        self.current_episode_steps += 1
         rl_player = self._get_rl_player()
         
         x, y = action
@@ -168,8 +172,8 @@ class TagGame(MDP[TagGameState, TagGameAction]):
         for i in range(16):
             angle = i * 22.5
             rad = math.radians(angle)
-            x = int(round(math.cos(rad) * self.max_velocity))
-            y = int(round(math.sin(rad) * self.max_velocity))
+            x = math.cos(rad) * self.max_velocity
+            y = math.sin(rad) * self.max_velocity
             if x != 0 or y != 0:
                 actions.append((x, y))
         return actions

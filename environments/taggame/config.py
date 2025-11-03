@@ -13,6 +13,9 @@ CORNER_EPISODES_PERCENTAGE = 0.25
 PREDATOR_MAX_SPEED_RATIO = 1.0
 AGENT_MAX_SPEED_RATIO = 1.0
 
+# Tagger randomness/noise parameters (0.0 = deterministic, 1.0 = maximum chaos)
+TAGGER_NOISE_LEVEL = 0.5  # Controls angle noise, speed variation, and stop chance
+
 # DQN Hyperparameters
 BATCH_SIZE = 128
 GAMMA = 0.995

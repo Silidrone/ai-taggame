@@ -11,9 +11,9 @@ from environments.taggame.config import (
     HIDDEN_SIZE
 )
 from rl import DQNHyperParameters, DQN, QNetwork
-from util import standard_saver, plot_training_progress
+from util import standard_saver
 
-N_FEATURES = 11
+N_FEATURES = 21
 
 class TagGameQNetwork(QNetwork):
     def __init__(self, n_features: int, n_actions: int):
@@ -59,8 +59,28 @@ def feature_extractor(state):
     dy = my_pos[1] - tag_pos[1]
     distance = math.sqrt(dx * dx + dy * dy) / math.sqrt(WIDTH**2 + HEIGHT**2)
 
+    # Normalized distance components to tagger
+    norm_dx = dx / WIDTH
+    norm_dy = dy / HEIGHT
+
     angle = math.atan2(dy, dx)
     normalized_angle = (angle + math.pi) / (2 * math.pi)
+
+    # Corner positions
+    corners = [(0, 0), (0, HEIGHT), (WIDTH, 0), (WIDTH, HEIGHT)]
+    max_corner_dist = math.sqrt(WIDTH**2 + HEIGHT**2)
+
+    # Distance from my position to each corner
+    my_corner_dists = [
+        math.sqrt((my_pos[0] - cx)**2 + (my_pos[1] - cy)**2) / max_corner_dist
+        for cx, cy in corners
+    ]
+
+    # Distance from tagger position to each corner
+    tagger_corner_dists = [
+        math.sqrt((tag_pos[0] - cx)**2 + (tag_pos[1] - cy)**2) / max_corner_dist
+        for cx, cy in corners
+    ]
 
     bias = 1.0
 
@@ -69,6 +89,9 @@ def feature_extractor(state):
         norm_vel_x, norm_vel_y,
         norm_tagger_vel_x, norm_tagger_vel_y,
         distance, normalized_angle,
+        norm_dx, norm_dy,
+        my_corner_dists[0], my_corner_dists[1], my_corner_dists[2], my_corner_dists[3],
+        tagger_corner_dists[0], tagger_corner_dists[1], tagger_corner_dists[2], tagger_corner_dists[3],
         bias
     ], dtype=np.float32)
 
