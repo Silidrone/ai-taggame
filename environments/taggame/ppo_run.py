@@ -9,25 +9,29 @@ from environments.taggame import config
 
 class CurriculumCallback(BaseCallback):
     """
-    Callback to gradually increase tagger noise level during training.
-    Goes from 0.0 to 0.7 over 500k steps.
+    Callback to randomize tagger noise level during training.
+    Changes noise randomly between 0.0 and 1.0 every 10 episodes.
     """
-    def __init__(self, max_noise=0.7, max_steps=500000, verbose=0):
+    def __init__(self, verbose=0):
         super().__init__(verbose)
-        self.max_noise = max_noise
-        self.max_steps = max_steps
+        self.episode_count = 0
+        self.last_episode_count = 0
+        self.current_noise = 0.0
 
     def _on_step(self) -> bool:
-        # Calculate current noise level based on num_timesteps
-        progress = min(1.0, self.num_timesteps / self.max_steps)
-        current_noise = progress * self.max_noise
+        import random
 
-        # Update global config
-        config.TAGGER_NOISE_LEVEL = current_noise
+        # Track episode count from n_episodes in locals
+        if 'dones' in self.locals and any(self.locals['dones']):
+            self.episode_count += sum(self.locals['dones'])
 
-        # Log every 10k steps
-        if self.num_timesteps % 10000 == 0:
-            print(f"Timesteps: {self.num_timesteps} | Tagger Noise: {current_noise:.3f}")
+        # Change noise every 10 episodes
+        if self.episode_count // 10 > self.last_episode_count // 10:
+            self.current_noise = random.uniform(0.0, 1.0)
+            config.TAGGER_NOISE_LEVEL = self.current_noise
+            if self.verbose > 0:
+                print(f"Episodes: {self.episode_count} | New Tagger Noise: {self.current_noise:.3f}")
+            self.last_episode_count = self.episode_count
 
         return True
 
@@ -53,8 +57,8 @@ def train_ppo(log_dir, n_timesteps=1000000, render=False, n_envs=8):
     eval_env = TagGameGymEnv(render=False)
     eval_env = Monitor(eval_env, os.path.join(log_dir, 'eval'))
 
-    # Curriculum callback - gradually increase noise
-    curriculum_callback = CurriculumCallback(max_noise=0.7, max_steps=500000)
+    # Curriculum callback - randomize noise every 10 episodes
+    curriculum_callback = CurriculumCallback(verbose=1)
 
     # Checkpoint callback - save every 50k steps
     checkpoint_callback = CheckpointCallback(
