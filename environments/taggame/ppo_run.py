@@ -1,22 +1,60 @@
 import os
 from stable_baselines3 import PPO
-from stable_baselines3.common.callbacks import CheckpointCallback, EvalCallback
+from stable_baselines3.common.vec_env import SubprocVecEnv
+from stable_baselines3.common.callbacks import CheckpointCallback, EvalCallback, BaseCallback
 from stable_baselines3.common.monitor import Monitor
 from environments.taggame.gym_wrapper import TagGameGymEnv
+from environments.taggame import config
 
 
-def train_ppo(log_dir, n_timesteps=1000000, render=False):
-    """Train PPO agent on TagGame with continuous actions."""
+class CurriculumCallback(BaseCallback):
+    """
+    Callback to gradually increase tagger noise level during training.
+    Goes from 0.0 to 0.7 over 500k steps.
+    """
+    def __init__(self, max_noise=0.7, max_steps=500000, verbose=0):
+        super().__init__(verbose)
+        self.max_noise = max_noise
+        self.max_steps = max_steps
+
+    def _on_step(self) -> bool:
+        # Calculate current noise level based on num_timesteps
+        progress = min(1.0, self.num_timesteps / self.max_steps)
+        current_noise = progress * self.max_noise
+
+        # Update global config
+        config.TAGGER_NOISE_LEVEL = current_noise
+
+        # Log every 10k steps
+        if self.num_timesteps % 10000 == 0:
+            print(f"Timesteps: {self.num_timesteps} | Tagger Noise: {current_noise:.3f}")
+
+        return True
+
+
+def make_env():
+    """Create a single environment instance"""
+    def _init():
+        env = TagGameGymEnv(render=False)
+        env = Monitor(env)
+        return env
+    return _init
+
+
+def train_ppo(log_dir, n_timesteps=1000000, render=False, n_envs=8):
+    """Train PPO agent on TagGame with parallel environments."""
 
     os.makedirs(log_dir, exist_ok=True)
 
-    # Create environment
-    env = TagGameGymEnv(render=render)
-    env = Monitor(env, log_dir)
+    # Create vectorized environment (parallel)
+    env = SubprocVecEnv([make_env() for _ in range(n_envs)])
 
-    # Create evaluation environment
+    # Create evaluation environment (single)
     eval_env = TagGameGymEnv(render=False)
     eval_env = Monitor(eval_env, os.path.join(log_dir, 'eval'))
+
+    # Curriculum callback - gradually increase noise
+    curriculum_callback = CurriculumCallback(max_noise=0.7, max_steps=500000)
 
     # Checkpoint callback - save every 50k steps
     checkpoint_callback = CheckpointCallback(
@@ -53,13 +91,14 @@ def train_ppo(log_dir, n_timesteps=1000000, render=False):
     )
 
     print(f"Training PPO for {n_timesteps} timesteps...")
+    print(f"Parallel environments: {n_envs}")
     print(f"Log directory: {log_dir}")
     print("-" * 60)
 
     # Train the model
     model.learn(
         total_timesteps=n_timesteps,
-        callback=[checkpoint_callback, eval_callback],
+        callback=[curriculum_callback, checkpoint_callback, eval_callback],
         progress_bar=False
     )
 
@@ -151,11 +190,13 @@ if __name__ == '__main__':
                         help='Render during evaluation')
     parser.add_argument('--fps', type=int, default=60,
                         help='FPS limit for evaluation')
+    parser.add_argument('--n-envs', type=int, default=8,
+                        help='Number of parallel environments for training')
 
     args = parser.parse_args()
 
     if args.mode == 'train':
-        train_ppo(args.log_dir, args.timesteps)
+        train_ppo(args.log_dir, args.timesteps, n_envs=args.n_envs)
     elif args.mode == 'evaluate':
         if not args.model:
             # Try to find best model
