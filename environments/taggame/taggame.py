@@ -106,7 +106,7 @@ class TagGame(MDP[TagGameState, TagGameAction]):
             rl_player.is_tagged
         )
     
-    def step(self, state: TagGameState, action: TagGameAction) -> Tuple[TagGameState, Reward]:
+    def step(self, state: TagGameState, action: TagGameAction, chaser_action: TagGameAction = None) -> Tuple[TagGameState, Reward]:
         if pygame.get_init():
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -114,37 +114,46 @@ class TagGame(MDP[TagGameState, TagGameAction]):
 
         self.current_episode_steps += 1
         rl_player = self._get_rl_player()
-        
+
         x, y = action
         action_vector = Vector2D(x, y)
         if action_vector.length() > 0:
             action_vector = action_vector.normalize().times(self.max_velocity * AGENT_MAX_SPEED_RATIO)
-        
+
         rl_player.set_velocity(action_vector)
-        
+
         current_time = pygame.time.get_ticks() if pygame.get_init() else int(time.time() * 1000)
         tagger_sleeping = (current_time - self.tag_changed_time < TAG_COOLDOWN_MS)
-        
+
         if not tagger_sleeping:
             tagger = self.tag_player
             if tagger != rl_player:
-                tagger.set_steering_behavior(
-                    DumbTagSteering(tagger, self, self.width, self.height, self.max_velocity * PREDATOR_MAX_SPEED_RATIO)
-                )
+                if chaser_action is not None:
+                    # Use RL action for chaser
+                    chaser_x, chaser_y = chaser_action
+                    chaser_action_vector = Vector2D(chaser_x, chaser_y)
+                    if chaser_action_vector.length() > 0:
+                        chaser_action_vector = chaser_action_vector.normalize().times(self.max_velocity * PREDATOR_MAX_SPEED_RATIO)
+                    tagger.set_velocity(chaser_action_vector)
+                else:
+                    # Use default steering behavior
+                    tagger.set_steering_behavior(
+                        DumbTagSteering(tagger, self, self.width, self.height, self.max_velocity * PREDATOR_MAX_SPEED_RATIO)
+                    )
                 self._handle_tagging_logic()
-        
+
         for player in self.players:
             if player != rl_player:
                 player.update(1.0 * self.time_coefficient)
-        
+
         rl_player.update(1.0 * self.time_coefficient)
         new_state = self._get_state()
         reward = self._calculate_reward(state, new_state)
-        
+
         if self.render_enabled:
             self._render()
             self.clock.tick(FRAME_RATE_CAP)
-            
+
         return new_state, reward
     
     def _calculate_reward(self, old_state: TagGameState, new_state: TagGameState) -> Reward:
