@@ -6,11 +6,13 @@ Demonstrates near-optimal evasion and pursuit strategies.
 import pygame
 import time
 from environments.taggame.taggame import TagGame
-from environments.taggame.dumb_tag_steering import DumbTagSteering
+from environments.taggame.deterministic_policies import ALL_POLICIES
+from environments.taggame.deterministic_policies.evader_policy import EvaderPolicy
 from environments.taggame.static_info import Vector2D
 from environments.taggame.config import (
-    WIDTH, HEIGHT, FRAME_RATE_CAP, TIME_COEFFICIENT, TAG_COOLDOWN_MS
+    WIDTH, HEIGHT, FRAME_RATE_CAP, TIME_COEFFICIENT, TAG_COOLDOWN_MS, CURRENT_CHASER_POLICY_IDX
 )
+from environments.taggame import config
 
 
 def run_deterministic_simulation(render=True, max_steps=10000, fps_limit=None):
@@ -33,15 +35,19 @@ def run_deterministic_simulation(render=True, max_steps=10000, fps_limit=None):
     tagger = env.tag_player  # The tagger
 
     # Steering controllers for both
-    evader_steering = DumbTagSteering(evader, env, WIDTH, HEIGHT, env.max_velocity)
-    tagger_steering = DumbTagSteering(tagger, env, WIDTH, HEIGHT, env.max_velocity)
+    evader_steering = EvaderPolicy(evader, env, WIDTH, HEIGHT, env.max_velocity)
+
+    # Use policy from config
+    policy_class = ALL_POLICIES[config.CURRENT_CHASER_POLICY_IDX]
+    tagger_steering = policy_class(tagger, env, WIDTH, HEIGHT, env.max_velocity)
 
     steps = 0
     start_time = time.time()
 
+    policy_name = policy_class.__name__
     print("Running deterministic simulation...")
-    print("Evader (blue): Using evasion steering")
-    print("Tagger (red): Using pursuit steering")
+    print("Evader (blue): Using EvaderPolicy")
+    print(f"Tagger (red): Using {policy_name}")
     print(f"Max steps: {max_steps}")
     if fps_limit:
         print(f"FPS limit: {fps_limit}")

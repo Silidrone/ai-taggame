@@ -4,7 +4,7 @@ import time
 import pygame
 import random
 
-from environments.taggame.dumb_tag_steering import DumbTagSteering
+from environments.taggame.deterministic_policies import ALL_POLICIES
 from environments.taggame.static_info import Point2D, StaticInfo, Vector2D
 from environments.taggame.tag_player import TagPlayer
 from mdp import MDP, Reward
@@ -128,8 +128,10 @@ class TagGame(MDP[TagGameState, TagGameAction]):
         if not tagger_sleeping:
             tagger = self.tag_player
             if tagger != rl_player:
+                # Use current policy from config
+                policy_class = ALL_POLICIES[config.CURRENT_CHASER_POLICY_IDX]
                 tagger.set_steering_behavior(
-                    DumbTagSteering(tagger, self, self.width, self.height, self.max_velocity * PREDATOR_MAX_SPEED_RATIO)
+                    policy_class(tagger, self, self.width, self.height, self.max_velocity * PREDATOR_MAX_SPEED_RATIO)
                 )
                 self._handle_tagging_logic()
         

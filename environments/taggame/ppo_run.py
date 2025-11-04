@@ -9,28 +9,28 @@ from environments.taggame import config
 
 class CurriculumCallback(BaseCallback):
     """
-    Callback to randomize tagger noise level during training.
-    Changes noise randomly between 0.0 and 1.0 every 10 episodes.
+    Callback to rotate through different deterministic chaser policies.
+    Changes policy every 100 episodes.
     """
     def __init__(self, verbose=0):
         super().__init__(verbose)
         self.episode_count = 0
         self.last_episode_count = 0
-        self.current_noise = 0.0
+        self.current_policy_idx = 0
 
     def _on_step(self) -> bool:
-        import random
-
         # Track episode count from n_episodes in locals
         if 'dones' in self.locals and any(self.locals['dones']):
             self.episode_count += sum(self.locals['dones'])
 
-        # Change noise every 10 episodes
-        if self.episode_count // 10 > self.last_episode_count // 10:
-            self.current_noise = random.uniform(0.0, 1.0)
-            config.TAGGER_NOISE_LEVEL = self.current_noise
+        # Change policy every 100 episodes
+        if self.episode_count // 100 > self.last_episode_count // 100:
+            from environments.taggame.deterministic_policies import ALL_POLICIES
+            self.current_policy_idx = (self.current_policy_idx + 1) % len(ALL_POLICIES)
+            config.CURRENT_CHASER_POLICY_IDX = self.current_policy_idx
+            policy_name = ALL_POLICIES[self.current_policy_idx].__name__
             if self.verbose > 0:
-                print(f"Episodes: {self.episode_count} | New Tagger Noise: {self.current_noise:.3f}")
+                print(f"Episodes: {self.episode_count} | New Chaser Policy: {policy_name}")
             self.last_episode_count = self.episode_count
 
         return True
