@@ -70,13 +70,11 @@ def feature_extractor(state):
     corners = [(0, 0), (0, HEIGHT), (WIDTH, 0), (WIDTH, HEIGHT)]
     max_corner_dist = math.sqrt(WIDTH**2 + HEIGHT**2)
 
-    # Distance from my position to each corner
     my_corner_dists = [
         math.sqrt((my_pos[0] - cx)**2 + (my_pos[1] - cy)**2) / max_corner_dist
         for cx, cy in corners
     ]
 
-    # Distance from tagger position to each corner
     tagger_corner_dists = [
         math.sqrt((tag_pos[0] - cx)**2 + (tag_pos[1] - cy)**2) / max_corner_dist
         for cx, cy in corners

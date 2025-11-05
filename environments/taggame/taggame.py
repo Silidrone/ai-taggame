@@ -106,7 +106,7 @@ class TagGame(MDP[TagGameState, TagGameAction]):
             rl_player.is_tagged
         )
     
-    def step(self, state: TagGameState, action: TagGameAction) -> Tuple[TagGameState, Reward]:
+    def step(self, state: TagGameState, action: TagGameAction, chaser_policy_idx=None) -> Tuple[TagGameState, Reward]:
         if pygame.get_init():
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -128,8 +128,8 @@ class TagGame(MDP[TagGameState, TagGameAction]):
         if not tagger_sleeping:
             tagger = self.tag_player
             if tagger != rl_player:
-                # Use current policy from config
-                policy_class = ALL_POLICIES[config.CURRENT_CHASER_POLICY_IDX]
+                policy_idx = chaser_policy_idx if chaser_policy_idx is not None else config.CURRENT_CHASER_POLICY_IDX
+                policy_class = ALL_POLICIES[policy_idx]
                 tagger.set_steering_behavior(
                     policy_class(tagger, self, self.width, self.height, self.max_velocity * PREDATOR_MAX_SPEED_RATIO)
                 )
@@ -156,7 +156,6 @@ class TagGame(MDP[TagGameState, TagGameAction]):
         if not old_is_tagged and new_is_tagged:
             return -1.0
 
-        # enemy is on cooldown
         if tag_pos == old_tag_pos:
             return 0.0
 
@@ -196,7 +195,6 @@ class TagGame(MDP[TagGameState, TagGameAction]):
         )
 
     def _get_corner_position(self) -> Point2D:
-        """Get a random position in the vicinity of a corner (within 70 pixels)."""
         corner_radius = 70
         corner = random.choice([
             'bottom_left', 'bottom_right', 'top_left', 'top_right'
@@ -211,7 +209,7 @@ class TagGame(MDP[TagGameState, TagGameAction]):
         elif corner == 'top_left':
             x = random.uniform(self.player_radius, corner_radius)
             y = random.uniform(self.player_radius, corner_radius)
-        else:  # top_right
+        else:
             x = random.uniform(self.width - corner_radius, self.width - self.player_radius)
             y = random.uniform(self.player_radius, corner_radius)
 
@@ -236,14 +234,13 @@ class TagGame(MDP[TagGameState, TagGameAction]):
             
         self.screen.fill((0, 0, 0))
 
-        # Draw border (visual only, doesn't affect physics)
         pygame.draw.rect(self.screen, (100, 100, 100), (0, 0, self.width, self.height), 3)
 
         for player in self.players:
             if player.name == RL_PLAYER_NAME:
-                color = (0, 0, 255)  # Blue
+                color = (0, 0, 255)
             else:
-                color = (0, 255, 0)  # Green
+                color = (0, 255, 0)
             
             pygame.draw.circle(
                 self.screen,
@@ -256,7 +253,7 @@ class TagGame(MDP[TagGameState, TagGameAction]):
             end_y = player.static_info.pos.y + player.radius * math.sin(player.static_info.orientation)
             pygame.draw.line(
                 self.screen,
-                (255, 255, 255), # White
+                (255, 255, 255),
                 (int(player.static_info.pos.x), int(player.static_info.pos.y)),
                 (int(end_x), int(end_y)),
                 2
@@ -265,7 +262,7 @@ class TagGame(MDP[TagGameState, TagGameAction]):
             if player.is_tagged:
                 pygame.draw.circle(
                     self.screen,
-                    (255, 0, 0),  # Red
+                    (255, 0, 0),
                     (int(player.static_info.pos.x), int(player.static_info.pos.y)),
                     int(player.radius + 1),
                     2

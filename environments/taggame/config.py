@@ -1,4 +1,3 @@
-# Environment params
 WIDTH = 900
 HEIGHT = 800
 FRAME_RATE_CAP = 3000
@@ -9,15 +8,30 @@ MAX_VELOCITY = 100
 PLAYER_COUNT = 2
 RL_PLAYER_NAME = "Sili"
 TAG_COOLDOWN_MS = 10
-CORNER_EPISODES_PERCENTAGE = 0.25
+CORNER_EPISODES_PERCENTAGE = 0.2
 PREDATOR_MAX_SPEED_RATIO = 1.0
 AGENT_MAX_SPEED_RATIO = 1.0
 
-# Current chaser policy index (rotated during training)
-CURRENT_CHASER_POLICY_IDX = 0
+ENABLE_POLICY_ROTATION = False
+ROTATION_FREQUENCY = 1000
+CURRENT_CHASER_POLICY_IDX = 2
 
+POLICY_WEIGHTS = [
+    1.0,    # DirectChasePolicy
+    5.0,    # InterceptChasePolicy
+    1.0,    # CornerCutPolicy
+    1.0,    # ZigzagChasePolicy
+    1.0,    # SpiralChasePolicy
+    1.0,    # CenterControlPolicy
+    30.0,   # RandomWalkPolicy
+    5.0,    # AmbushPolicy
+    30.0    # ChaoticChasePolicy
+]
 
-# DQN Hyperparameters
+MAX_EPISODE_STEPS = 10000
+
+ENABLE_DEBUG_LOGS = False
+
 BATCH_SIZE = 128
 GAMMA = 0.995
 EPS_START = 1.0
@@ -27,5 +41,4 @@ TAU = 0.005
 LEARNING_RATE = 1e-4
 MEMORY_SIZE = 100000
 
-# Network architecture
 HIDDEN_SIZE = 256

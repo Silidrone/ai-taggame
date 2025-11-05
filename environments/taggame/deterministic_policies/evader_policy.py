@@ -1,4 +1,3 @@
-"""Evader policy - flees from tagger using corner-based evasion strategy."""
 import math
 from typing import List, Tuple
 from environments.taggame.static_info import Point2D, StaticInfo, Vector2D
@@ -6,10 +5,6 @@ from environments.taggame.tag_player import TagPlayer
 
 
 class EvaderPolicy:
-    """
-    Evasion policy that flees from the tagger.
-    Uses corner awareness and weighted flee behavior.
-    """
 
     def __init__(self, me: TagPlayer, arena, width: int, height: int, max_velocity: float):
         self.corners = [

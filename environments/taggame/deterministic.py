@@ -1,7 +1,3 @@
-"""
-Deterministic tag game simulation using steering behaviors for both agents.
-Demonstrates near-optimal evasion and pursuit strategies.
-"""
 
 import pygame
 import time
@@ -16,28 +12,14 @@ from environments.taggame import config
 
 
 def run_deterministic_simulation(render=True, max_steps=10000, fps_limit=None):
-    """
-    Run tag game with steering behaviors for both players.
-
-    Args:
-        render: Whether to display the game visually
-        max_steps: Maximum simulation steps before stopping
-        fps_limit: Optional FPS limit for rendering
-
-    Returns:
-        total_steps: Number of steps the evader survived
-    """
     env = TagGame(render=render)
     env.initialize()
 
-    # Get players
-    evader = env._get_rl_player()  # The agent we normally train
-    tagger = env.tag_player  # The tagger
+    evader = env._get_rl_player()
+    tagger = env.tag_player
 
-    # Steering controllers for both
     evader_steering = EvaderPolicy(evader, env, WIDTH, HEIGHT, env.max_velocity)
 
-    # Use policy from config
     policy_class = ALL_POLICIES[config.CURRENT_CHASER_POLICY_IDX]
     tagger_steering = policy_class(tagger, env, WIDTH, HEIGHT, env.max_velocity)
 
@@ -57,7 +39,6 @@ def run_deterministic_simulation(render=True, max_steps=10000, fps_limit=None):
         if fps_limit:
             step_start = time.time()
 
-        # Handle pygame events
         if render and pygame.get_init():
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -65,24 +46,19 @@ def run_deterministic_simulation(render=True, max_steps=10000, fps_limit=None):
                     env.close()
                     return steps
 
-        # Get current time for cooldown check
         current_time = pygame.time.get_ticks() if pygame.get_init() else int(time.time() * 1000)
         tagger_sleeping = (current_time - env.tag_changed_time < TAG_COOLDOWN_MS)
 
-        # Evader uses steering behavior (flee)
         evade_action = evader_steering(evader.static_info, evader.velocity)
         evader.set_velocity(evade_action)
 
-        # Tagger uses steering behavior (seek) - unless on cooldown
         if not tagger_sleeping:
             pursue_action = tagger_steering(tagger.static_info, tagger.velocity)
             tagger.set_velocity(pursue_action)
 
-        # Update physics for all players
         for player in env.players:
             player.update(1.0 * TIME_COEFFICIENT)
 
-        # Check for tag
         distance = evader.static_info.pos.distance(tagger.static_info.pos)
         if distance < (evader.radius + tagger.radius) and not tagger_sleeping:
             print(f"\nEvader was caught at step {steps}")
@@ -90,7 +66,6 @@ def run_deterministic_simulation(render=True, max_steps=10000, fps_limit=None):
             env.close()
             return steps
 
-        # Render
         if render:
             env._render()
 
@@ -102,7 +77,6 @@ def run_deterministic_simulation(render=True, max_steps=10000, fps_limit=None):
             if elapsed < target_time:
                 time.sleep(target_time - elapsed)
 
-        # Print progress every 1000 steps
         if steps % 1000 == 0:
             elapsed = time.time() - start_time
             print(f"Step {steps} | Distance: {distance:.1f} | Elapsed: {elapsed:.1f}s")

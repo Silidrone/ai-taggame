@@ -55,6 +55,3 @@ class StaticInfo:
         self.pos = self.pos.plus(velocity.times(time))
         if velocity.length() > 0.001:
             self.orientation = math.atan2(velocity.y, velocity.x)
-
-
-

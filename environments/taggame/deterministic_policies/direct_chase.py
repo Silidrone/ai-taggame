@@ -1,11 +1,9 @@
-"""Direct chase - simply chase the opponent in a straight line."""
 import math
 from environments.taggame.static_info import Point2D, StaticInfo, Vector2D
 from environments.taggame.tag_player import TagPlayer
 
 
 class DirectChasePolicy:
-    """Chases directly towards the opponent's current position."""
 
     def __init__(self, me: TagPlayer, arena, width: int, height: int, max_velocity: float):
         self.me = me
@@ -22,7 +20,6 @@ class DirectChasePolicy:
         if not other_players:
             return Vector2D(0, 0)
 
-        # Chase closest opponent
         target = min(other_players, key=lambda p: my_position.distance(p.static_info.pos))
         target_pos = target.static_info.pos
 
