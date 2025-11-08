@@ -4,7 +4,6 @@ from .intercept_chase import InterceptChasePolicy
 from .corner_cut import CornerCutPolicy
 from .zigzag_chase import ZigzagChasePolicy
 from .spiral_chase import SpiralChasePolicy
-from .center_control import CenterControlPolicy
 from .random_walk import RandomWalkPolicy
 from .ambush import AmbushPolicy
 from .chaotic_chase import ChaoticChasePolicy
@@ -15,7 +14,6 @@ ALL_POLICIES = [
     CornerCutPolicy,
     ZigzagChasePolicy,
     SpiralChasePolicy,
-    CenterControlPolicy,
     RandomWalkPolicy,
     AmbushPolicy,
     ChaoticChasePolicy

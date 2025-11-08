@@ -8,7 +8,7 @@ MAX_VELOCITY = 100
 PLAYER_COUNT = 2
 RL_PLAYER_NAME = "Sili"
 TAG_COOLDOWN_MS = 10
-CORNER_EPISODES_PERCENTAGE = 0.2
+CORNER_EPISODES_PERCENTAGE = 0.3
 PREDATOR_MAX_SPEED_RATIO = 1.0
 AGENT_MAX_SPEED_RATIO = 1.0
 
@@ -17,18 +17,17 @@ ROTATION_FREQUENCY = 1000
 CURRENT_CHASER_POLICY_IDX = 2
 
 POLICY_WEIGHTS = [
-    1.0,    # DirectChasePolicy
-    5.0,    # InterceptChasePolicy
-    1.0,    # CornerCutPolicy
-    1.0,    # ZigzagChasePolicy
-    1.0,    # SpiralChasePolicy
-    1.0,    # CenterControlPolicy
-    30.0,   # RandomWalkPolicy
-    5.0,    # AmbushPolicy
-    30.0    # ChaoticChasePolicy
+    54.9,   # DirectChasePolicy
+    11.8,   # InterceptChasePolicy
+    54.4,   # CornerCutPolicy
+    20.4,    # ZigzagChasePolicy
+    5.0,   # SpiralChasePolicy
+    72.2,  # RandomWalkPolicy
+    7.9,   # AmbushPolicy
+    42.7   # ChaoticChasePolicy
 ]
 
-MAX_EPISODE_STEPS = 10000
+MAX_EPISODE_STEPS = 1000
 
 ENABLE_DEBUG_LOGS = False
 
