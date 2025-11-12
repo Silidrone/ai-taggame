@@ -3,7 +3,7 @@ import numpy as np
 from gymnasium import spaces
 from environments.taggame.taggame import TagGame
 from environments.taggame.config import WIDTH, HEIGHT, MAX_VELOCITY
-from environments.taggame.run import feature_extractor, N_FEATURES
+from environments.taggame.train import feature_extractor, N_FEATURES
 from environments.taggame import config
 
 
@@ -39,7 +39,7 @@ class TagGameGymEnv(gym.Env):
         super().reset(seed=seed)
         self.current_state = self.env.reset()
         self.step_count = 0
-        obs = feature_extractor(self.current_state)
+        obs = feature_extractor(self.current_state, self.chaser_policy_idx)
         return obs, {}
 
     def step(self, action):
@@ -55,7 +55,7 @@ class TagGameGymEnv(gym.Env):
         terminated = self.env.is_terminal(next_state)
         truncated = self.step_count >= self.max_episode_steps
 
-        obs = feature_extractor(next_state)
+        obs = feature_extractor(next_state, self.chaser_policy_idx)
 
         self.current_state = next_state
 

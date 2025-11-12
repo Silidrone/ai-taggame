@@ -7,6 +7,7 @@ from .spiral_chase import SpiralChasePolicy
 from .random_walk import RandomWalkPolicy
 from .ambush import AmbushPolicy
 from .chaotic_chase import ChaoticChasePolicy
+from .human_like import HumanLikePolicy
 
 ALL_POLICIES = [
     DirectChasePolicy,
@@ -16,6 +17,7 @@ ALL_POLICIES = [
     SpiralChasePolicy,
     RandomWalkPolicy,
     AmbushPolicy,
-    ChaoticChasePolicy
+    ChaoticChasePolicy,
+    HumanLikePolicy
 ]
 

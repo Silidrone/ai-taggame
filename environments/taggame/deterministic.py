@@ -1,6 +1,7 @@
 
 import pygame
 import time
+import logging
 from environments.taggame.taggame import TagGame
 from environments.taggame.deterministic_policies import ALL_POLICIES
 from environments.taggame.deterministic_policies.evader_policy import EvaderPolicy
@@ -10,8 +11,21 @@ from environments.taggame.config import (
 )
 from environments.taggame import config
 
+logging.basicConfig(level=logging.INFO, format='%(message)s')
+logger = logging.getLogger(__name__)
+
 
 def run_deterministic_simulation(render=True, max_steps=10000, fps_limit=None):
+    # Setup simulation logging
+    sim_dir = 'data/taggame/simulation'
+    os.makedirs(sim_dir, exist_ok=True)
+    log_file = os.path.join(sim_dir, 'simulation.log')
+    file_handler = logging.FileHandler(log_file)
+    file_handler.setLevel(logging.INFO)
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+    
     env = TagGame(render=render)
     env.initialize()
 
@@ -27,13 +41,13 @@ def run_deterministic_simulation(render=True, max_steps=10000, fps_limit=None):
     start_time = time.time()
 
     policy_name = policy_class.__name__
-    print("Running deterministic simulation...")
-    print("Evader (blue): Using EvaderPolicy")
-    print(f"Tagger (red): Using {policy_name}")
-    print(f"Max steps: {max_steps}")
+    logger.info("Running deterministic simulation...")
+    logger.info("Evader (blue): Using EvaderPolicy")
+    logger.info(f"Tagger (red): Using {policy_name}")
+    logger.info(f"Max steps: {max_steps}")
     if fps_limit:
-        print(f"FPS limit: {fps_limit}")
-    print("-" * 50)
+        logger.info(f"FPS limit: {fps_limit}")
+    logger.info("-" * 50)
 
     while steps < max_steps:
         if fps_limit:
@@ -42,7 +56,7 @@ def run_deterministic_simulation(render=True, max_steps=10000, fps_limit=None):
         if render and pygame.get_init():
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    print(f"\nSimulation ended by user at step {steps}")
+                    logger.info(f"\nSimulation ended by user at step {steps}")
                     env.close()
                     return steps
 
@@ -61,8 +75,8 @@ def run_deterministic_simulation(render=True, max_steps=10000, fps_limit=None):
 
         distance = evader.static_info.pos.distance(tagger.static_info.pos)
         if distance < (evader.radius + tagger.radius) and not tagger_sleeping:
-            print(f"\nEvader was caught at step {steps}")
-            print(f"Survival time: {steps * TIME_COEFFICIENT:.2f}s")
+            logger.info(f"\nEvader was caught at step {steps}")
+            logger.info(f"Survival time: {steps * TIME_COEFFICIENT:.2f}s")
             env.close()
             return steps
 
@@ -79,10 +93,10 @@ def run_deterministic_simulation(render=True, max_steps=10000, fps_limit=None):
 
         if steps % 1000 == 0:
             elapsed = time.time() - start_time
-            print(f"Step {steps} | Distance: {distance:.1f} | Elapsed: {elapsed:.1f}s")
+            logger.info(f"Step {steps} | Distance: {distance:.1f} | Elapsed: {elapsed:.1f}s")
 
-    print(f"\nSimulation completed: {max_steps} steps without being caught!")
-    print(f"Survival time: {max_steps * TIME_COEFFICIENT:.2f}s")
+    logger.info(f"\nSimulation completed: {max_steps} steps without being caught!")
+    logger.info(f"Survival time: {max_steps * TIME_COEFFICIENT:.2f}s")
     env.close()
     return steps
 
@@ -106,4 +120,4 @@ if __name__ == '__main__':
         fps_limit=args.fps
     )
 
-    print(f"\nFinal result: {steps} steps")
+    logger.info(f"\nFinal result: {steps} steps")
