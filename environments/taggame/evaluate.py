@@ -1,4 +1,5 @@
 import os
+import glob
 import numpy as np
 import pygame
 import time
@@ -129,8 +130,10 @@ def evaluate_comprehensive(model_path=None, policy_indices=None, n_episodes=10, 
     if policy_indices is None:
         policy_indices = list(range(len(ALL_POLICIES)))
     
-    # Setup evaluation logging
-    eval_dir = 'data/taggame/evaluation'
+    # Setup evaluation logging with timestamp
+    from datetime import datetime
+    timestamp = datetime.now().strftime('%Y_%m_%d_%H%M%S')
+    eval_dir = f'data/taggame/eval_{timestamp}'
     os.makedirs(eval_dir, exist_ok=True)
     log_file = os.path.join(eval_dir, 'evaluation.log')
     file_handler = logging.FileHandler(log_file)
@@ -143,11 +146,21 @@ def evaluate_comprehensive(model_path=None, policy_indices=None, n_episodes=10, 
     model = None
     if not deterministic_evader:
         if model_path is None:
-            model_path = 'data/taggame/best_model.zip'
+            # Find most recent training directory
+            train_dirs = glob.glob('data/taggame/train_*')
+            if train_dirs:
+                latest_dir = max(train_dirs, key=os.path.getctime)
+                model_path = os.path.join(latest_dir, 'best_model.zip')
+                if not os.path.exists(model_path):
+                    model_path = os.path.join(latest_dir, 'final.zip')
+            else:
+                # Fallback to old structure
+                model_path = 'data/taggame/best_model.zip'
+                if not os.path.exists(model_path):
+                    model_path = 'data/taggame/final.zip'
+            
             if not os.path.exists(model_path):
-                model_path = 'data/taggame/final.zip'
-            if not os.path.exists(model_path):
-                raise ValueError(f"No model found. Specify --model path")
+                raise ValueError(f"No model found. Train a model first or specify --model path")
         model = PPO.load(model_path)
     
     # Log header

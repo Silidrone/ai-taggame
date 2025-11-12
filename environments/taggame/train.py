@@ -1,6 +1,7 @@
 import os
 import logging
 import numpy as np
+from datetime import datetime
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import SubprocVecEnv
 from stable_baselines3.common.callbacks import CheckpointCallback, EvalCallback, BaseCallback
@@ -226,13 +227,18 @@ if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser(description='Train PPO on TagGame')
-    parser.add_argument('--log-dir', type=str, default='data/taggame',
-                        help='Directory for logs and checkpoints')
+    parser.add_argument('--log-dir', type=str, default=None,
+                        help='Directory for logs and checkpoints (default: auto-generate with timestamp)')
     parser.add_argument('--timesteps', type=int, default=1000000,
                         help='Number of timesteps to train')
     parser.add_argument('--n-envs', type=int, default=8,
                         help='Number of parallel environments for training')
 
     args = parser.parse_args()
-
+    
+    # Generate timestamped directory if not specified
+    if args.log_dir is None:
+        timestamp = datetime.now().strftime('%Y_%m_%d_%H%M%S')
+        args.log_dir = f'data/taggame/train_{timestamp}'
+    
     train_ppo(args.log_dir, args.timesteps, n_envs=args.n_envs)

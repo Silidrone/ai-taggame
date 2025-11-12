@@ -76,8 +76,9 @@ class TagGame(MDP[TagGameState, TagGameAction]):
         self.set_tag(self._get_random_non_rl_player())
         
         invalid_reset = False
+        min_distance = 0.2 * (self.width**2 + self.height**2)**0.5  # 20% of diagonal
         for player in self.players:
-            if player != self.tag_player and self.tag_player.is_tagging(player):
+            if player != self.tag_player and self.tag_player.static_info.pos.distance(player.static_info.pos) < min_distance:
                 invalid_reset = True
                 break
                 
