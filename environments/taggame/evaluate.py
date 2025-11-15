@@ -153,11 +153,6 @@ def evaluate_comprehensive(model_path=None, policy_indices=None, n_episodes=10, 
                 model_path = os.path.join(latest_dir, 'best_model.zip')
                 if not os.path.exists(model_path):
                     model_path = os.path.join(latest_dir, 'final.zip')
-            else:
-                # Fallback to old structure
-                model_path = 'data/taggame/best_model.zip'
-                if not os.path.exists(model_path):
-                    model_path = 'data/taggame/final.zip'
             
             if not os.path.exists(model_path):
                 raise ValueError(f"No model found. Train a model first or specify --model path")
